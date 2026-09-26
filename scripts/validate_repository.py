@@ -15,6 +15,10 @@ def check(root: Path = Path(".")) -> list[str]:
         for job in data["jobs"].values():
             names.add(job.get("name", ""))
             for step in job.get("steps", []):
+                for line in step.get("run", "").splitlines():
+                    command = line.split("|", 1)[0]
+                    if "gh api" in command and "--slurp" in command and "--jq" in command:
+                        errors.append(f"{path}: incompatible gh pagination flags")
                 action = step.get("uses", "")
                 if action and not re.fullmatch(r"[\w./-]+@[a-f0-9]{40}", action):
                     errors.append(f"{path}: unpinned action {action}")

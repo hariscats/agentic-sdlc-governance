@@ -36,5 +36,5 @@ jobs:
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           gh pr view "$PR" --repo "$REPO" --json author,title,body,labels,additions,deletions,closingIssuesReferences,headRefOid,latestReviews > "$RUNNER_TEMP/pr.json"
-          gh api --method GET "repos/$REPO/pulls/$PR/reviews?per_page=100" --paginate --slurp --jq 'add' > "$RUNNER_TEMP/reviews.json"
+          gh api --method GET "repos/$REPO/pulls/$PR/reviews?per_page=100" --paginate --slurp | jq 'add // []' > "$RUNNER_TEMP/reviews.json"
           python3 -m governance.gates.run agent --metadata "$RUNNER_TEMP/pr.json" --reviews "$RUNNER_TEMP/reviews.json" --candidate ../candidate --base "$BASE" --head "$HEAD"

@@ -23,6 +23,9 @@ def test_workflow_ruleset_contract_and_negative(tmp_path: Path) -> None:
     errors = check(tmp_path)
     assert any("unpinned" in item for item in errors)
     assert any("permissions" in item for item in errors)
+    policy = tmp_path / ".github/workflows/agent-pr-policy.yml"
+    policy.write_text(policy.read_text().replace("--slurp | jq", "--slurp --jq"))
+    assert any("pagination flags" in item for item in check(tmp_path))
 
 
 def test_signed_sbom_binding() -> None:

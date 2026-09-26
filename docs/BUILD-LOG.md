@@ -125,3 +125,12 @@ Release and verification commands: `gh release create --help`, `gh attestation v
   https://spdx.org/licenses/Python-2.0.1.html,
   https://raw.githubusercontent.com/actions/dependency-review-action/a1d282b36b6f3519aa1f3fc636f609c47dddb294/action.yml,
   https://raw.githubusercontent.com/actions/dependency-review-action/a1d282b36b6f3519aa1f3fc636f609c47dddb294/src/licenses.ts.
+
+- Hosted negative PR #7 (base: build branch, never main) exposed incompatible
+  `gh api --slurp --jq` flags. Corrected to pipe JSON to `jq`, matching
+  `gh api --help` pagination examples at https://cli.github.com/manual/gh_api.
+  Added repository-validation regression coverage. This initial failure was a CLI
+  wiring defect, not a successful agent-policy denial.
+- Dependency Review correction passed in run 36277906687. Spec Traceability
+  rejected PR #7 for the intended missing spec/task/test references in run
+  36277906902.
