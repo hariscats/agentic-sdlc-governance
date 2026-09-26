@@ -80,6 +80,18 @@ gh attestation verify permit-intake.zip --repo hariscats/agentic-sdlc-governance
   --source-ref refs/heads/main --deny-self-hosted-runners
 ```
 
+The build-branch rehearsal verifies real attestations and intentionally rejects
+them as main provenance, without entering either environment. It is evidence for
+the cryptographic portion only, not a replacement for this approved-release scene.
+
+## Recorded setup rehearsal
+
+See BUILD-LOG for run URLs and subsequent reset results. PR #7, targeting the
+unmerged build branch, demonstrated a high CodeQL SQL injection alert, the failing
+regression test, and native trace/agent policy denials. The unsafe patch was
+reversed manually; no Autofix or custom-pattern push rejection is claimed.
+Main still requires independent trust-root bootstrap and approval.
+
 ## Scene 7 and reset
 
 ```bash

@@ -134,3 +134,30 @@ Release and verification commands: `gh release create --help`, `gh attestation v
 - Dependency Review correction passed in run 36277906687. Spec Traceability
   rejected PR #7 for the intended missing spec/task/test references in run
   36277906902.
+
+## Native negative rehearsal and final acceptance boundaries
+
+- PR #7 targets the unmerged build branch so trusted policy can execute without
+  weakening main. After the pagination fix, Agent PR Policy run 36277953954
+  reports the intended missing issue and spec label; CI rejects the unsafe code.
+- The original one-line fixture was caught by pytest but not CodeQL. The revised
+  fixture exposes the SQLite connection directly, with explicit try/finally cleanup,
+  rather than through `contextlib.closing`. Native CodeQL run 36278010553 produced
+  alert #1: `py/sql-injection`, **high**, `src/app.py`. This fixes the demonstration,
+  not a production app defect. Safe application code remains parameterized.
+  Source/alert API reference:
+  https://docs.github.com/en/rest/code-scanning/code-scanning#list-code-scanning-alerts-for-a-repository.
+- The fixture was reversed with a new commit, not rewritten history. This is a
+  presenter-applied fix, **not a claimed Copilot Autofix**. The negative PR does
+  not establish successful installation of main's trusted gate code.
+- Native branch proof now also compares the downloaded SPDX document with the
+  verified signed predicate inside Actions. Branch proof never enters environments.
+- Upstream Spec Kit MIT notice retained in `.specify/LICENSE`, covering generated
+  Spec Kit assets: https://raw.githubusercontent.com/github/spec-kit/v1.0.9/LICENSE.
+- 47 tests, 95.11% coverage, strict types, lint and configuration validation pass
+  after hosted-feedback fixes. Initial commits are unsigned (`git log %G?` = N);
+  signature enforcement was not disabled.
+- Main acceptance is still blocked by independent bootstrap approval, unavailable
+  independent reviewer, and trust-root installation. Custom-pattern push rejection,
+  cloud delegation/requester approval, and production release remain unverified.
+  Cloud automations drift and production administrator bypass require manual action.

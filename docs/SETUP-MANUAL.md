@@ -42,6 +42,11 @@ Organization/enterprise telemetry remains inapplicable: usage fixtures are label
    merged checks are green. A different authorized actor must initiate/approve
    production under the configured self-review restriction. The local rehearsal
    does not claim native attestation or production approval.
+8. **Use verified signed commits for acceptance.** Local setup commits are unsigned.
+   Keep the signed-commit rule enabled; the independent bootstrap procedure must
+   account for signing (for example, an authorized GitHub-signed squash once all
+   other prerequisites are satisfied). No unverified signing identity was installed.
+   https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification
 
 ## Verified references
 
@@ -95,3 +100,6 @@ Organization/enterprise telemetry remains inapplicable: usage fixtures are label
 - `attest-sbom` v4.1.0 currently emits a deprecation warning. Its pinned, verified
   interface is used until a separately reviewed migration to `actions/attest`.
 - gh-aw and Copilot automations are deliberately excluded. Azure deployment is simulated.
+- The exact-version typing-extensions license metadata exception is proposed in
+  the bootstrap PR, with source-license evidence in BUILD-LOG. The compliance
+  owner must approve this policy correction before production use.

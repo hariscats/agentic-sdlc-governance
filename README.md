@@ -46,7 +46,7 @@ Copilot usage is prominently labelled **SYNTHETIC DATA**; repository flow can be
 | Tool boundary | Repository hooks plus conservative CLI allowlists; not an OS sandbox |
 | PR gates | CI, CodeQL, dependency review, spec trace and agent policy |
 | Human boundary | CODEOWNERS, approval of latest push, production self-review prevention |
-| Release | Main-only build, SPDX inventory, provenance/SBOM attestations, verification, environments |
+| Release | Main-only production path; isolated build-branch attestation rehearsal; SPDX and evidence |
 | Evidence | Per-file hashes, specs/tasks, available PR approvals/checks and config drift report |
 | Reset | Dry-run by default; only labelled demo PRs on `demo/*` and demo spec-002 issues |
 
@@ -57,6 +57,14 @@ Independent human acceptance, the initial trusted-gate installation, custom demo
 secret pattern, and any unresolved configuration drift are tracked in
 [SETUP-MANUAL](docs/SETUP-MANUAL.md). Code and local tests are not proof that a
 release or human approval has occurred.
+
+Implementation is on [`build/governance-reference`](https://github.com/hariscats/agentic-sdlc-governance/tree/build/governance-reference)
+in [PR #6](https://github.com/hariscats/agentic-sdlc-governance/pull/6), with the
+specification published first in [PR #5](https://github.com/hariscats/agentic-sdlc-governance/pull/5).
+Neither PR has been merged. Hosted CI, dependency review, metrics, and native
+**branch-only** provenance/SPDX verification have run successfully.
+The original Spec Kit generated assets in `.specify/` and `.github/skills/`
+are covered by the upstream [MIT notice](.specify/LICENSE).
 
 Start with [the 30-minute runbook](DEMO.md), [architecture](docs/ARCHITECTURE.md),
 [control mapping](docs/CONTROL-MAPPING.md), and [build evidence](docs/BUILD-LOG.md).
