@@ -49,7 +49,6 @@ def repository(tmp_path: Path) -> tuple[Path, str, str, dict[str, Any]]:
         "additions": 3,
         "deletions": 0,
         "closingIssuesReferences": [],
-        "latestReviews": [],
     }
     return tmp_path, base, head, data
 
@@ -76,17 +75,35 @@ def test_duplicate_spec(repository: tuple[Path, str, str, dict[str, Any]]) -> No
         evaluate("trace", data, root, base, head)
 
 
-def test_current_head_security_approval(repository: tuple[Path, str, str, dict[str, Any]]) -> None:
+def test_agent_commit_identity(repository: tuple[Path, str, str, dict[str, Any]]) -> None:
     root, base, _, data = repository
-    (root / "governance").mkdir()
-    (root / "governance/example.json").write_text("{}")
+    (root / "src/extra.py").write_text("x = 1\n")
+    git(root, "add", ".")
+    git(
+        root,
+        "-c",
+        "user.name=copilot-swe-agent[bot]",
+        "-c",
+        "user.email=198982749+Copilot@users.noreply.github.com",
+        "commit",
+        "-qm",
+        "Add extra module",
+    )
+    head = data["headRefOid"] = git(root, "rev-parse", "HEAD")
+    errors, computed = evaluate("agent", data, root, base, head)
+    assert any("linked issue" in e for e in errors)
+    assert computed == "medium"
+
+
+def test_high_risk_defers_approval_to_ruleset(
+    repository: tuple[Path, str, str, dict[str, Any]],
+) -> None:
+    root, base, _, data = repository
+    (root / "GOVERNANCE").mkdir()
+    (root / "GOVERNANCE/example.json").write_text("{}")
     git(root, "add", ".")
     git(root, "commit", "-qm", "protected")
     head = data["headRefOid"] = git(root, "rev-parse", "HEAD")
-    assert evaluate("agent", data, root, base, head)[0]
-    data["_reviews"] = [{"user": {"login": "hariscats"}, "state": "APPROVED", "commit_id": base}]
-    assert evaluate("agent", data, root, base, head)[0]
-    data["_reviews"][0]["commit_id"] = head
     assert evaluate("agent", data, root, base, head) == ([], "high")
 
 

@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from governance.gates.policy import PullRequest, is_agent
 from scripts.github_data import pull_requests
 
 REPO = "hariscats/agentic-sdlc-governance"
@@ -38,15 +39,27 @@ def usage(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def agent_authored(pr: dict[str, Any]) -> bool:
+    commits = pr.get("commits") or []
+    return is_agent(
+        PullRequest(
+            author=pr["author"]["login"],
+            labels=[x["name"] for x in pr["labels"]],
+            commits=[c.get("messageBody") or "" for c in commits],
+            identities=[
+                value
+                for c in commits
+                for a in c.get("authors") or []
+                for value in (a.get("login"), a.get("email"), a.get("name"))
+                if value
+            ],
+        )
+    )
+
+
 def flow(prs: list[dict[str, Any]]) -> dict[str, Any]:
     merged = [p for p in prs if p["mergedAt"]]
-    agent = [
-        p
-        for p in merged
-        if p["author"]["login"].lower() in {"copilot", "copilot[bot]", "copilot-swe-agent[bot]"}
-        or any(x["name"] == "agent-authored" for x in p["labels"])
-        or any("Co-authored-by: Copilot" in c.get("messageBody", "") for c in p.get("commits", []))
-    ]
+    agent = [p for p in merged if agent_authored(p)]
     lead = [hours(p["createdAt"], p["mergedAt"]) for p in merged]
     review = [
         hours(

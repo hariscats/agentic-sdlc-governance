@@ -22,20 +22,29 @@ Open http://127.0.0.1:8000/docs. Submit a category (`building`, `event`,
 `environmental`) and a synthetic description of 10-500 printable characters.
 The API is **unauthenticated and loopback-only**, not a production agency service.
 
-## Rehearse governance without changing GitHub
+## Demo in 10 minutes
 
 ```bash
-uv run --frozen python -m scripts.rehearse
-uv run --frozen python -m metrics.collector --live-flow
-bash scripts/reset-demo.sh
+uv sync --frozen
+uv run --frozen python -m scripts.rehearse --pause
 ```
 
-The rehearsal applies the actual seeded SQL injection patch **only in a temporary
-copy**, proves a regression test rejects it, checks hook and policy denials, and
-builds a source ZIP, SPDX lockfile inventory, checksums, and evidence ZIP under
-`dist/v0.1.0-demo/`. Local integrity checks are **not signed attestations**.
-Open `dashboard/index.html` for a self-contained, no-network dashboard.
-Copilot usage is prominently labelled **SYNTHETIC DATA**; repository flow can be live.
+This runs three beats in about a second and changes nothing on GitHub:
+
+1. **The agent can't go rogue.** The real hook wrapper denies disabling CI, pipe-to-shell,
+   reading `~/.ssh` and a stdlib-shadowing bypass, and allows the in-scope edit.
+   Every decision is audited in `.agent-audit/`.
+2. **Gates catch what slips through.** A 401-line cloud-agent PR with no spec, task
+   or issue is blocked by both custom gates, and the actual seeded SQL-injection
+   patch fails CI. This runs in a temporary copy only.
+3. **Proof, not promises.** The rehearsal builds a source ZIP, SPDX inventory,
+   checksums and an evidence pack in `dist/v0.1.0-demo/`. Refresh the dashboard with
+   `uv run --frozen python -m metrics.collector --live-flow`, then open
+   `dashboard/index.html`. The dashboard's Copilot usage is labelled
+   **SYNTHETIC DATA**, and local checksums are **not signed attestations**.
+   [DEMO.md](DEMO.md) shows live `gh attestation verify` against the signed build.
+
+[DEMO.md](DEMO.md) has the talk track and fallbacks, plus an extended 30-minute runbook.
 
 ## Governance
 
@@ -66,5 +75,5 @@ Neither PR has been merged. Hosted CI, dependency review, metrics, and native
 The original Spec Kit generated assets in `.specify/` and `.github/skills/`
 are covered by the upstream [MIT notice](.specify/LICENSE).
 
-Start with [the 30-minute runbook](DEMO.md), [architecture](docs/ARCHITECTURE.md),
+Start with [the demo runbook](DEMO.md), [architecture](docs/ARCHITECTURE.md),
 [control mapping](docs/CONTROL-MAPPING.md), and [build evidence](docs/BUILD-LOG.md).

@@ -6,7 +6,8 @@ Commit form: `feat(T012): description [spec:001]`.
 PRs must include spec:NNN and task IDs; agent PRs also need a linked issue and spec label.
 
 Agents must not edit .github/, governance/, scripts/, .specify/, AGENTS.md,
-pyproject.toml, or uv.lock. Platform changes are proposed for independent human review.
+pyproject.toml, or uv.lock; repository hooks allow edits only under src/, tests/ and specs/.
+Platform changes are proposed for independent human review.
 Never bypass a rule, approval, scanner, test, or audit log. Never force-push or
 direct-push main. Do not mark unavailable controls successful.
 

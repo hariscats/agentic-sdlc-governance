@@ -10,9 +10,10 @@ Organization/enterprise telemetry remains inapplicable: usage fixtures are label
 ## Human decisions that automation must not fabricate
 
 1. **Bootstrap the trust root with independent approval.** The initial main contains
-   only the GitHub-created README. PR policy workflows intentionally execute gate
-   code from the base commit, never PR-controlled Python with an elevated token.
-   The first installation PR cannot find that base gate yet. An independently
+   only the GitHub-created README. The trace and agent gates run on
+   `pull_request_target`, which uses the workflow and gate code from the default
+   branch and never PR-controlled Python. Until they exist on main, those two
+   required checks never report on the installation PR, so it stays blocked (fail closed). An independently
    reviewed platform bootstrap procedure is required before normal task PRs can
    pass. The initial large, agent-coauthored governance PR also intentionally
    violates the ordinary 400-line/protected-path policy. Do not silently relabel
@@ -60,6 +61,7 @@ Organization/enterprise telemetry remains inapplicable: usage fixtures are label
 | Personal Copilot policy | https://docs.github.com/en/copilot/how-tos/manage-your-account/managing-copilot-policies-as-an-individual-subscriber |
 | Custom secret patterns | https://docs.github.com/en/code-security/how-tos/secure-your-secrets/customize-leak-detection/define-custom-patterns |
 | Hook payloads and timeout behavior | https://docs.github.com/en/copilot/reference/hooks-reference |
+| `pull_request_target` uses the default branch | https://github.blog/changelog/2025-11-07-actions-pull_request_target-and-environment-branch-protections-changes/ |
 | Artifact attestations | https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations |
 | Metrics schemas | https://docs.github.com/en/rest/copilot/copilot-usage-metrics |
 | Cloud-agent protections | https://docs.github.com/en/copilot/concepts/agents/cloud-agent/about-cloud-agent |
@@ -75,13 +77,24 @@ Organization/enterprise telemetry remains inapplicable: usage fixtures are label
   record. Do not claim repository hooks loaded. Use the explicit tool restrictions
   in `scripts/agent-run.sh`; demonstrate policy decisions directly until actual
   CLI hook loading is confirmed.
-- **TODO(verify):** Agent author logins are conservative known signals; the explicit
-  `agent-authored` label and Copilot coauthor trailers cover local CLI contributions.
-  An actor who strips all provenance cannot be identified infallibly by metadata.
+- Agent identity signals were verified on public cloud-agent PRs (`gh`:
+  `app/copilot-swe-agent`; REST: `Copilot`; commits: `copilot-swe-agent[bot]` with a
+  `+Copilot@users.noreply.github.com` email). The `agent-authored` label and Copilot
+  co-author trailers cover local CLI contributions. An actor who strips all
+  provenance cannot be identified infallibly by metadata.
+- **TODO(verify):** CI, CodeQL and Dependency Review run PR-controlled workflow YAML
+  on `pull_request`, so a PR could edit them or add a job with a required check's
+  name. CODEOWNERS review of `.github/`, the agent gate's protected-path rule and the
+  validator's duplicate-name rule reduce this risk. How GitHub resolves two
+  same-named check runs is not verified. Organization-level required workflows are
+  not configured for this personal repository.
+- The gates fetch `refs/pull/N/head` anonymously because the repository is public.
+  A private copy fails closed until the fetch is given a read-only credential.
 - Hooks are defense in depth. Command-hook timeouts fail open per current docs;
   arbitrary test code is executable. Use isolated runners and do not expose secrets
   to agent-controlled tests. The local wrapper denies shell and only grants specific
-  source/test/spec files; no `--allow-all-tools`.
+  source/test/spec files; no `--allow-all-tools`. Hook edits are limited to exact-case
+  `src/`, `tests/` and `specs/`, and the hook interpreter runs with `-I -S`.
 - Spec author path scope is instructional outside the local wrapper; custom-agent
   tool aliases do not express a directory sandbox.
 - Local audit JSONL is not automatically uploaded: raw prompts/arguments are never

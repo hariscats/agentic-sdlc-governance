@@ -33,16 +33,25 @@ def test_flow() -> None:
     pr = {
         "mergedAt": "2026-01-02T00:00:00Z",
         "createdAt": "2026-01-01T00:00:00Z",
-        "author": {"login": "copilot[bot]"},
+        "author": {"login": "app/copilot-swe-agent"},
         "labels": [],
         "commits": [{}, {}],
         "reviews": [{"author": {"login": "human"}, "submittedAt": "2026-01-01T02:00:00Z"}],
         "statusCheckRollup": [{"name": "CI", "conclusion": "FAILURE"}],
     }
-    result = flow([pr])
+    delegated = {
+        **pr,
+        "author": {"login": "human"},
+        "commits": [
+            {"authors": [{"email": "198982749+Copilot@users.noreply.github.com", "name": "x"}]}
+        ],
+    }
+    human = {**pr, "author": {"login": "human"}, "commits": [{"messageBody": "fix"}]}
+    result = flow([pr, delegated, human])
     assert result["median_lead_hours"] == 24
     assert result["median_first_review_hours"] == 2
-    assert result["merged_agent"] == 1
+    assert result["merged_agent"] == 2
+    assert result["merged_other"] == 1
     assert flow([])["median_lead_hours"] is None
     with pytest.raises(ValueError):
         hours("2026-01-02T00:00:00Z", "2026-01-01T00:00:00Z")

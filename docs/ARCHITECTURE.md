@@ -32,19 +32,32 @@ All examples are loopback-only; no internet-facing authentication is implemented
 Pure functions in governance/gates/policy.py enforce traceability and agent policy.
 The PR runner reads immutable base/head SHAs, rejects head movement, reads task files
 as data through git show, and handles deleted/renamed paths without trusting labels.
-Tests cover exact 400/401-line boundaries and stale security approval.
-High-risk approval must be from a configured security owner, not the PR author, at
-the current head commit. PR rules independently dismiss stale approval.
+Tests cover exact 400/401-line boundaries. Agent detection normalizes the verified
+cloud-agent identities (`app/copilot-swe-agent` from `gh`, `Copilot` from REST, the
+`copilot-swe-agent[bot]` commit author and its `+Copilot@users.noreply.github.com`
+email) plus the `agent-authored` label and Copilot co-author trailers. Protected-path
+matching is case-insensitive, so `GOVERNANCE/` counts as `governance/`.
 
-Policy workflows run code from the trusted base checkout. The candidate is inspected
-as Git data only. CI runs candidate tests with a read-only token and no application
-secrets. The separate risk labeller uses metadata only and never checks out PR code.
-Risk labels are advisory; the gate recomputes risk rather than trusting the label.
+High-risk approval is native, not reimplemented: the ruleset requires code-owner
+review, dismisses stale approvals and requires approval of the latest push, and
+CODEOWNERS assigns every path to the security owner. GitHub ignores comment-only
+reviews and the PR author's own review, so a later comment cannot cancel or replace
+an approval.
+
+The Spec Traceability and Agent PR Policy gates run on `pull_request_target`. GitHub
+therefore takes the workflow file, `GITHUB_SHA` and the checked-out gate code from the
+default branch, so a PR cannot rewrite its own gate. PR commits are fetched as Git
+objects and read with `git diff/log/show/ls-tree` only. They are never checked out,
+imported or executed. Checks attach to the PR head commit. CI, CodeQL and dependency
+review must run PR code, so they stay on `pull_request`; CODEOWNERS on `.github/` and
+the agent gate's protected-path rule guard their workflow files. The risk labeller
+uses metadata only; the gate recomputes risk rather than trusting the label.
 
 Repository hooks are not a sandbox or a replacement for server-side enforcement.
 They fail closed for known denied commands and unknown tool formats; documented
-timeouts can fail open. The local wrapper therefore also denies shell and limits
-automatically approved writes to known files.
+timeouts can fail open. The wrapper runs `python3 -I -S` with the repository appended
+after the standard library, so an agent-created `json.py` or `.pth` file cannot
+change a decision. Edits are allowed only under exact-case `src/`, `tests/` and `specs/`.
 
 ## Release and evidence
 

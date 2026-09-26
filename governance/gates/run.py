@@ -31,6 +31,13 @@ def evaluate(
         deletions=metadata["deletions"],
         linked_issues=[entry["number"] for entry in metadata["closingIssuesReferences"]],
         commits=[git("log", "--format=%B", f"{base}..{head}", cwd=candidate)],
+        identities=[
+            value.strip()
+            for value in git(
+                "log", "--format=%an%x00%ae%x00%cn%x00%ce%x00", f"{base}..{head}", cwd=candidate
+            ).split("\0")
+            if value.strip()
+        ],
     )
     specs: dict[str, str] = {}
     for path in git(
@@ -43,20 +50,6 @@ def evaluate(
             specs[match[1]] = git("show", f"{head}:{path}", cwd=candidate)
     errors = trace(pr, specs) if mode == "trace" else agent_policy(pr)
     computed = risk(pr)
-    if mode == "agent" and computed == "high":
-        config = json.loads(Path("governance/config.json").read_text())
-        latest = {
-            review["user"]["login"]: review
-            for review in metadata.get("_reviews", [])
-            if review.get("user") and review["state"] != "PENDING"
-        }
-        approvals = {
-            login
-            for login, review in latest.items()
-            if review["state"] == "APPROVED" and review["commit_id"] == head and login != pr.author
-        }
-        if not approvals.intersection(config["security_owners"]):
-            errors.append("High risk requires an independent SECURITY owner approval")
     return errors, computed
 
 
@@ -64,14 +57,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", choices=["trace", "agent"])
     parser.add_argument("--metadata", type=Path, required=True)
-    parser.add_argument("--reviews", type=Path)
     parser.add_argument("--candidate", type=Path, required=True)
     parser.add_argument("--base", required=True)
     parser.add_argument("--head", required=True)
     args = parser.parse_args()
     metadata = json.loads(args.metadata.read_text())
-    if args.reviews:
-        metadata["_reviews"] = json.loads(args.reviews.read_text())
     errors, computed = evaluate(args.mode, metadata, args.candidate, args.base, args.head)
     report = {
         "gate": args.mode,
@@ -86,6 +76,8 @@ def main() -> None:
         with Path(summary).open("a") as stream:
             stream.write(f"### {args.mode}: {report['status']}\n\n")
             stream.write("Risk: " + computed + "\n\n")
+            if computed == "high":
+                stream.write("High risk: the ruleset requires security code-owner approval.\n\n")
             stream.write("\n".join("- " + e.replace("<", "&lt;") for e in errors) + "\n")
     raise SystemExit(1 if errors else 0)
 

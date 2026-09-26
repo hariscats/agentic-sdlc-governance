@@ -14,6 +14,7 @@ def test_workflow_ruleset_contract_and_negative(tmp_path: Path) -> None:
     assert check() == []
     shutil.copytree(".github", tmp_path / ".github")
     shutil.copytree("governance/rulesets", tmp_path / "governance/rulesets")
+    shutil.copy("governance/config.json", tmp_path / "governance/config.json")
     workflow = tmp_path / ".github/workflows/ci.yml"
     workflow.write_text(
         workflow.read_text()
@@ -23,9 +24,38 @@ def test_workflow_ruleset_contract_and_negative(tmp_path: Path) -> None:
     errors = check(tmp_path)
     assert any("unpinned" in item for item in errors)
     assert any("permissions" in item for item in errors)
+    (tmp_path / ".github/workflows/bad.yml").write_text(
+        """name: Bad
+on:
+  pull_request_target:
+permissions:
+  contents: read
+jobs:
+  spoof:
+    name: Agent PR Policy Gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - run: git checkout FETCH_HEAD && gh api x --paginate --slurp --jq add
+"""
+    )
+    (tmp_path / ".github/CODEOWNERS").write_text("* @someone-else\n")
+    errors = check(tmp_path)
+    for expected in [
+        "pagination flags",
+        "materialize PR code",
+        "base only",
+        "persist-credentials",
+        "Duplicate job name",
+        "CODEOWNERS must assign /governance/",
+    ]:
+        assert any(expected in item for item in errors), expected
+    (tmp_path / ".github/workflows/bad.yml").unlink()
     policy = tmp_path / ".github/workflows/agent-pr-policy.yml"
-    policy.write_text(policy.read_text().replace("--slurp | jq", "--slurp --jq"))
-    assert any("pagination flags" in item for item in check(tmp_path))
+    policy.write_text(policy.read_text().replace("pull_request_target:", "pull_request:"))
+    assert any("must run only on pull_request_target" in item for item in check(tmp_path))
 
 
 def test_signed_sbom_binding() -> None:

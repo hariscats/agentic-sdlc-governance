@@ -1,6 +1,9 @@
 name: Spec Traceability
+# pull_request_target runs this file and the gate code from the default branch, so a
+# PR cannot rewrite its own gate. PR commits are fetched as Git objects for inspection
+# only: never checked out, built, imported or executed.
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened, edited]
 permissions:
   contents: read
@@ -15,17 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          persist-credentials: false
-          path: trusted
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          persist-credentials: false
           fetch-depth: 0
-          path: candidate
-      - name: Read metadata and run trusted gate
-        working-directory: trusted
+          persist-credentials: false
+      - name: Run trusted gate
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
@@ -33,5 +28,7 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          gh pr view "$PR" --repo "$REPO" --json author,title,body,labels,additions,deletions,closingIssuesReferences,headRefOid,latestReviews > "$RUNNER_TEMP/pr.json"
-          python3 -m governance.gates.run trace --metadata "$RUNNER_TEMP/pr.json" --candidate ../candidate --base "$BASE" --head "$HEAD"
+          # Anonymous fetch works for this public repository; a private copy fails closed.
+          git fetch --no-tags --quiet origin "$BASE" "+refs/pull/$PR/head:refs/remotes/pull/head"
+          gh pr view "$PR" --repo "$REPO" --json author,title,body,labels,additions,deletions,closingIssuesReferences,headRefOid > "$RUNNER_TEMP/pr.json"
+          python3 -m governance.gates.run trace --metadata "$RUNNER_TEMP/pr.json" --candidate . --base "$BASE" --head "$HEAD"

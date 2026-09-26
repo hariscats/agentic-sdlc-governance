@@ -13,6 +13,12 @@ PROTECTED = (
 )
 TASK = re.compile(r"\bT\d{3}\b")
 SPEC = re.compile(r"\bspec:(\d{3})\b")
+# gh reports app authors as "app/<slug>"; REST reports the cloud agent as "Copilot".
+AGENT_LOGINS = {"copilot", "copilot-swe-agent"}
+AGENT_EMAIL = re.compile(r"\d+\+copilot@users\.noreply\.github\.com", re.IGNORECASE)
+AGENT_TRAILER = re.compile(
+    r"(?im)^Co-authored-by:\s*(?:Copilot\b|.*<\d+\+Copilot@users\.noreply\.github\.com>)"
+)
 
 
 @dataclass(frozen=True)
@@ -32,10 +38,24 @@ class PullRequest:
     deletions: int = 0
     commits: list[str] = field(default_factory=list)
     linked_issues: list[int] = field(default_factory=list)
+    # Commit author/committer names and emails.
+    identities: list[str] = field(default_factory=list)
 
 
 def protected(path: str) -> bool:
-    return any(path == prefix or path.startswith(prefix) for prefix in PROTECTED)
+    # Case-insensitive: macOS/Windows checkouts resolve GOVERNANCE/ to governance/.
+    folded = path.casefold()
+    return any(folded.startswith(prefix.casefold()) for prefix in PROTECTED)
+
+
+def normalize_login(login: str) -> str:
+    login = login.strip().casefold().removeprefix("app/")
+    return login.removesuffix("[bot]")
+
+
+def agent_identity(value: str) -> bool:
+    value = value.strip()
+    return normalize_login(value) in AGENT_LOGINS or bool(AGENT_EMAIL.fullmatch(value))
 
 
 def paths(pr: PullRequest) -> list[str]:
@@ -73,16 +93,21 @@ def trace(pr: PullRequest, specs: dict[str, str]) -> list[str]:
 
 def is_agent(pr: PullRequest) -> bool:
     return (
-        pr.author.lower() in {"copilot", "copilot[bot]", "copilot-swe-agent[bot]"}
+        agent_identity(pr.author)
         or "agent-authored" in pr.labels
-        or any(re.search(r"(?im)^Co-authored-by:\s*Copilot\b", c) for c in pr.commits)
+        or any(agent_identity(identity) for identity in pr.identities)
+        or any(AGENT_TRAILER.search(c) for c in pr.commits)
     )
 
 
 def risk(pr: PullRequest) -> str:
-    if any(protected(p) or re.search(r"(^|/)(auth|crypto)(/|\.|$)", p) for p in paths(pr)):
+    if any(high_risk(p) for p in paths(pr)):
         return "high"
     return "medium" if any(p.startswith("src/") for p in paths(pr)) else "low"
+
+
+def high_risk(path: str) -> bool:
+    return protected(path) or bool(re.search(r"(^|/)(auth|crypto)(/|\.|$)", path, re.I))
 
 
 def agent_policy(pr: PullRequest, max_lines: int = 400) -> list[str]:

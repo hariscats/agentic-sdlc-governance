@@ -4,12 +4,14 @@ import os
 import re
 import sys
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from governance.gates.policy import protected
 
 ROOT = Path(__file__).resolve().parents[1]
+# Exact case on purpose: anything else (root modules, .venv, conftest.py) is denied.
+EDITABLE = ("src/", "tests/", "specs/")
 SAFE_COMMANDS = {
     "git status --short",
     "git diff",
@@ -45,13 +47,13 @@ def decision(tool: str, args: dict[str, Any], root: Path = ROOT) -> tuple[str, s
             if not resolved.is_relative_to(root.resolve()):
                 return "deny", "Access outside the repository is prohibited"
             relative = resolved.relative_to(root.resolve()).as_posix()
-            if any(
-                part in {".git", ".agent-audit"} or part.startswith(".env")
-                for part in resolved.parts
-            ):
+            parts = [part.casefold() for part in PurePosixPath(relative).parts]
+            if any(p in {".git", ".agent-audit"} or p.startswith(".env") for p in parts):
                 return "deny", "Credential, audit, and git metadata access is prohibited"
             if tool in edits and protected(relative):
                 return "deny", "Protected path requires human platform/security review"
+            if tool in edits and not relative.startswith(EDITABLE):
+                return "deny", "Agents may edit only src/, tests/ and specs/"
         return "allow", "Repository-scoped path"
     if tool in {"ask_user", "update_todo", "report_progress", "task_complete"}:
         return "allow", "Non-executing collaboration tool"

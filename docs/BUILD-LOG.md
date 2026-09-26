@@ -188,3 +188,30 @@ Optional gh-aw/automations were not enabled. The project is implemented and
 published for independent review, **not fully accepted end-to-end**. Remaining
 human/platform prerequisites are enumerated in SETUP-MANUAL rather than hidden
 behind fabricated success or weakened rules.
+
+## Code review fixes and quick demo
+
+A `/review` pass reported five issues. Each fix below was verified locally.
+
+| # | Finding | Fix | Evidence |
+|---|---|---|---|
+| 1 | Agent gate missed cloud-agent PRs (`gh` reports `app/copilot-swe-agent`; trailers name the human) | `policy.normalize_login` strips `app/` and `[bot]`; commit author/committer names and emails are checked, including `NNN+Copilot@users.noreply.github.com`; metrics reuse the same `is_agent` | Identities observed on public cloud-agent PRs via `gh pr view --json author,commits` and REST `pulls/N`; parametrized tests plus a git-fixture test using a `copilot-swe-agent[bot]` commit |
+| 2 | Repo-root `json.py`/`hashlib.py` could shadow stdlib and force "allow" | Wrappers run `python3 -I -S -c ...` and append the repository after the stdlib; hook edits are allowlisted to exact-case `src/`, `tests/`, `specs/` | Reproduced: the old wrapper returned `allow` with a shadow `json.py`, while the new one returned `deny` and wrote audit JSONL. The regression test fails against the old wrapper. |
+| 3 | Case-insensitive filesystems bypassed path checks | `protected()` casefolds; hook metadata checks use casefolded relative parts; risk labeller casefolds | Tests for `GOVERNANCE/`, `.GITHUB/`, `Scripts/`, `agents.md`, `.GIT/config`, `.ENV`, `SRC/` |
+| 4 | A later COMMENTED review superseded an approval | Review-history logic removed. The native ruleset (`require_code_owner_review`, stale dismissal, last-push approval) and CODEOWNERS enforce security approval; GitHub ignores comment-only reviews | Validator requires those ruleset settings and security owners for `/.github/`, `/governance/`, `/scripts/` |
+| 5 | Gate YAML was PR-controlled on `pull_request` | Spec Traceability and Agent PR Policy moved to `pull_request_target`; they check out the default branch only, fetch `refs/pull/N/head` as objects, and never check out PR code | Changelog: https://github.blog/changelog/2025-11-07-actions-pull_request_target-and-environment-branch-protections-changes/ (workflow, `GITHUB_SHA` and `GITHUB_REF` come from the default branch). Validator rejects head `ref`, credential persistence, git worktree commands and duplicate required-check job names |
+
+Consequences recorded in SETUP-MANUAL:
+- The two trusted gates no longer report on PR #6 until they exist on `main`, so it stays blocked (fail closed).
+- The PR-into-build-branch technique used for PR #7 no longer exercises them.
+- Other required checks still run PR-controlled YAML; same-name check semantics remain TODO(verify).
+
+The quick demo is `python -m scripts.rehearse [--pause]`. It is three narrated beats:
+the real hook wrapper, both gates plus the seeded SQL-injection test, then the evidence
+pack and dashboard. A local run completed in about 1 second. The live proof step
+downloads `release-candidate` from the latest successful build-branch release run.
+
+`gh attestation verify` with `--signer-workflow` passed; the provenance ref was
+`refs/heads/build/governance-reference` at `806c430`. A copy with one appended byte
+failed with HTTP 404 because no attestation matches its digest. `gh` prints nothing
+on success without a TTY, so scripted checks use `--format json`.

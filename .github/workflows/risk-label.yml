@@ -22,9 +22,9 @@ jobs:
           risk=$(python3 - "$RUNNER_TEMP/files.json" <<'PY'
           import json, sys
           data = json.load(open(sys.argv[1]))
-          paths = [f["path"] for f in data["files"]]
-          protected = (".github/", "governance/", ".specify/", "scripts/", "AGENTS.md", "pyproject.toml", "uv.lock")
-          high = data["changedFiles"] != len(paths) or any(p.startswith(protected) or "/auth" in p or "/crypto" in p for p in paths)
+          paths = [f["path"].casefold() for f in data["files"]]
+          protected = (".github/", "governance/", ".specify/", "scripts/", "agents.md", "pyproject.toml", "uv.lock")
+          high = data["changedFiles"] != len(paths) or any(p.startswith(protected) or "auth" in p or "crypto" in p for p in paths)
           print("high" if high else "medium" if any(p.startswith("src/") for p in paths) else "low")
           PY
           )
