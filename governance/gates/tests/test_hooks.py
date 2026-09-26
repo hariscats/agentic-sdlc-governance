@@ -88,6 +88,11 @@ def test_case_and_allowlist_denials(tmp_path: Path, tool: str, path: str) -> Non
     assert decision(tool, {"path": path}, tmp_path)[0] == "deny"
 
 
+@pytest.mark.parametrize("args", [{"path": ""}, {"paths": []}, {"paths": ["src/a.py", " "]}])
+def test_empty_paths_are_denied(tmp_path: Path, args: dict[str, object]) -> None:
+    assert decision("edit", args, tmp_path)[0] == "deny"
+
+
 def test_allowlisted_edits(tmp_path: Path) -> None:
     for path in ["src/app.py", "tests/test_app.py", "specs/002-permit-review/tasks.md"]:
         assert decision("edit", {"path": path}, tmp_path)[0] == "allow"

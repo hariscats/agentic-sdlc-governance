@@ -31,7 +31,7 @@ def main() -> None:
         raise RuntimeError("Issue seed limit reached")
     known = {issue["title"] for issue in existing}
     tasks = Path("specs/002-permit-review/tasks.md").read_text()
-    for task, description in re.findall(r"- \[ \] (T\d{3}) (.+)", tasks):
+    for task, description in re.findall(r"- \[ \] (T\d{3,}) (.+)", tasks):
         title = f"[spec:002] {task}: {description}"
         if title in known:
             continue

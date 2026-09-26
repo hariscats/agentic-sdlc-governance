@@ -6,6 +6,7 @@ import pytest
 
 from metrics.collector import flow, hours, render, usage
 from scripts.release_bundle import build, evidence, verify
+from scripts.reset_demo import main as reset_main
 from scripts.reset_demo import plan
 
 
@@ -47,7 +48,13 @@ def test_flow() -> None:
         ],
     }
     human = {**pr, "author": {"login": "human"}, "commits": [{"messageBody": "fix"}]}
+    human["statusCheckRollup"] = [
+        {"name": "CI", "conclusion": "FAILURE", "completedAt": "2026-01-01T01:00:00Z"},
+        {"name": "CI", "conclusion": "SUCCESS", "completedAt": "2026-01-01T02:00:00Z"},
+        {"name": "CI", "conclusion": "", "completedAt": "2026-01-01T03:00:00Z"},
+    ]
     result = flow([pr, delegated, human])
+    assert result["gate_latest_conclusions"]["CI"] == {"failure": 2, "success": 1}
     assert result["median_lead_hours"] == 24
     assert result["median_first_review_hours"] == 2
     assert result["merged_agent"] == 2
@@ -93,3 +100,18 @@ def test_reset_scope() -> None:
         ["issue", "reopen", "4"],
         ["issue", "edit", "4", "--add-label", "agent-ready"],
     ]
+
+
+def test_reset_refuses_symlinked_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "permits.db").write_text("keep")
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / ".demo-state").symlink_to(outside)
+    monkeypatch.chdir(work)
+    monkeypatch.setattr("scripts.reset_demo.command", lambda *args: "[]")
+    monkeypatch.setattr("sys.argv", ["reset", "--apply"])
+    with pytest.raises(ValueError, match="symlinked"):
+        reset_main()
+    assert (outside / "permits.db").read_text() == "keep"

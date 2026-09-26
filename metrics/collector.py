@@ -77,20 +77,17 @@ def flow(prs: list[dict[str, Any]]) -> dict[str, Any]:
         )
     ]
     gates: dict[str, Counter[str]] = {}
+    completed = {"success", "failure", "timed_out", "cancelled"}
     for p in prs:
+        latest: dict[str, dict[str, Any]] = {}
         for check in p.get("statusCheckRollup") or []:
-            if check.get("conclusion") in {
-                "SUCCESS",
-                "FAILURE",
-                "TIMED_OUT",
-                "CANCELLED",
-                "success",
-                "failure",
-                "timed_out",
-                "cancelled",
-            }:
-                name = check.get("name", "unknown")
-                gates.setdefault(name, Counter())[check["conclusion"].lower()] += 1
+            if str(check.get("conclusion", "")).lower() not in completed:
+                continue
+            name = check.get("name") or check.get("context") or "unknown"
+            if (check.get("completedAt") or "") >= (latest.get(name, {}).get("completedAt") or ""):
+                latest[name] = check
+        for name, check in latest.items():
+            gates.setdefault(name, Counter())[check["conclusion"].lower()] += 1
     return {
         "sample_prs": len(prs),
         "merged_agent": len(agent),

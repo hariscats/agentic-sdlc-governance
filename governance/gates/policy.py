@@ -11,7 +11,7 @@ PROTECTED = (
     "pyproject.toml",
     "uv.lock",
 )
-TASK = re.compile(r"\bT\d{3}\b")
+TASK = re.compile(r"\bT\d{3,}\b")
 SPEC = re.compile(r"\bspec:(\d{3})\b")
 # gh reports app authors as "app/<slug>"; REST reports the cloud agent as "Copilot".
 AGENT_LOGINS = {"copilot", "copilot-swe-agent"}

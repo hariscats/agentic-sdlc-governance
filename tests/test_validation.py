@@ -24,6 +24,21 @@ def test_workflow_ruleset_contract_and_negative(tmp_path: Path) -> None:
     errors = check(tmp_path)
     assert any("unpinned" in item for item in errors)
     assert any("permissions" in item for item in errors)
+    (tmp_path / ".github/workflows/sign.yaml").write_text(
+        """name: Sign
+on: push
+permissions:
+  contents: read
+jobs:
+  sign:
+    runs-on: ubuntu-24.04
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - run: make
+"""
+    )
     (tmp_path / ".github/workflows/bad.yml").write_text(
         """name: Bad
 on:
@@ -50,9 +65,12 @@ jobs:
         "persist-credentials",
         "Duplicate job name",
         "CODEOWNERS must assign /governance/",
+        "sign.yaml: unpinned action",
+        "id-token job must not check out or run repository code",
     ]:
         assert any(expected in item for item in errors), expected
     (tmp_path / ".github/workflows/bad.yml").unlink()
+    (tmp_path / ".github/workflows/sign.yaml").unlink()
     policy = tmp_path / ".github/workflows/agent-pr-policy.yml"
     policy.write_text(policy.read_text().replace("pull_request_target:", "pull_request:"))
     assert any("must run only on pull_request_target" in item for item in check(tmp_path))

@@ -22,7 +22,7 @@ class Submission(BaseModel):
     @classmethod
     def normalize_description(cls, value: str) -> str:
         value = value.strip()
-        if len(value) < 10 or any(ord(char) < 32 for char in value):
+        if len(value) < 10 or not value.isprintable():
             raise ValueError("Use 10-500 printable characters")
         return value
 

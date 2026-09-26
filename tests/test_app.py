@@ -33,6 +33,8 @@ def test_submit_retrieve_persist(tmp_path: Path) -> None:
         {"category": "event", "description": "short"},
         {"category": "event", "description": "x" * 501},
         {"category": "event", "description": "Line one\nline two"},
+        {"category": "event", "description": "Fictional\x7factivity"},
+        {"category": "event", "description": "Fictional\x85activity"},
         {"category": "event", "description": "Fictional activity", "status": "approved"},
     ],
 )

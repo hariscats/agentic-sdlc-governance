@@ -38,10 +38,10 @@ def decision(tool: str, args: dict[str, Any], root: Path = ROOT) -> tuple[str, s
         values = args.get("paths", args.get("path", args.get("file_path")))
         if values is None and tool in reads:
             values = "."
-        if not isinstance(values, (str, list)):
+        if not isinstance(values, (str, list)) or not values:
             return "deny", "Missing or unsupported path argument"
         for value in [values] if isinstance(values, str) else values:
-            if not isinstance(value, str):
+            if not isinstance(value, str) or not value.strip():
                 return "deny", "Invalid path"
             resolved = (root / value).resolve()
             if not resolved.is_relative_to(root.resolve()):

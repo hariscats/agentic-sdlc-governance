@@ -30,10 +30,12 @@ def git(root: Path, *args: str) -> str:
 def repository(tmp_path: Path) -> tuple[Path, str, str, dict[str, Any]]:
     git(tmp_path, "init", "-q")
     (tmp_path / "README.md").write_text("fixture")
+    (tmp_path / "specs/001-demo").mkdir(parents=True)
+    (tmp_path / "specs/001-demo/tasks.md").write_text("- [ ] T012 build")
     git(tmp_path, "add", ".")
     git(tmp_path, "commit", "-qm", "base")
     base = git(tmp_path, "rev-parse", "HEAD")
-    for name in ["src/app.py", "tests/test_app.py", "specs/001-demo/tasks.md"]:
+    for name in ["src/app.py", "tests/test_app.py"]:
         path = tmp_path / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("T012")
@@ -65,14 +67,30 @@ def test_runner_and_race(repository: tuple[Path, str, str, dict[str, Any]]) -> N
 
 
 def test_duplicate_spec(repository: tuple[Path, str, str, dict[str, Any]]) -> None:
-    root, base, _, data = repository
+    root, _, _, data = repository
     (root / "specs/001-other").mkdir()
     (root / "specs/001-other/tasks.md").write_text("T012")
     git(root, "add", ".")
     git(root, "commit", "-qm", "duplicate")
+    base = git(root, "rev-parse", "HEAD")
+    (root / "src/app.py").write_text("T012 again")
+    git(root, "commit", "-qam", "change")
     head = data["headRefOid"] = git(root, "rev-parse", "HEAD")
     with pytest.raises(ValueError, match="duplicate"):
         evaluate("trace", data, root, base, head)
+
+
+def test_task_must_exist_before_the_change(
+    repository: tuple[Path, str, str, dict[str, Any]],
+) -> None:
+    root, base, _, data = repository
+    (root / "specs/001-demo/tasks.md").write_text("- [ ] T012 build\n- [ ] T013 sneak")
+    (root / "src/app.py").write_text("T013")
+    git(root, "commit", "-qam", "feat(T013): add task and code together [spec:001]")
+    head = data["headRefOid"] = git(root, "rev-parse", "HEAD")
+    data["title"] = "spec:001 T013"
+    errors, _ = evaluate("trace", data, root, base, head)
+    assert any("T013" in e for e in errors)
 
 
 def test_agent_commit_identity(repository: tuple[Path, str, str, dict[str, Any]]) -> None:

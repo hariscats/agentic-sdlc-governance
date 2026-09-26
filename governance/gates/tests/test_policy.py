@@ -88,6 +88,11 @@ def test_agent_signals(pr: PullRequest) -> None:
     assert agent_policy(pr)
 
 
+def test_four_digit_task_ids() -> None:
+    pr = PullRequest(author="human", title="spec:001 T1000", files=[Change("src/__init__.py")])
+    assert trace(pr, {"001": "- [ ] T1000 later task"}) == []
+
+
 def test_human_signals_are_not_agent() -> None:
     pr = PullRequest(
         author="hariscats",

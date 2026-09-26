@@ -16,7 +16,8 @@ def check(root: Path = Path(".")) -> list[str]:
     errors: list[str] = []
     names: Counter[str] = Counter()
     trusted: set[str] = set()
-    for path in (root / ".github/workflows").glob("*.yml"):
+    workflows = root / ".github/workflows"
+    for path in sorted([*workflows.glob("*.yml"), *workflows.glob("*.yaml")]):
         data = yaml.safe_load(path.read_text())
         # YAML 1.1 parses the bare key "on" as boolean True.
         triggers = data.get("on", data.get(True)) or {}
@@ -29,6 +30,12 @@ def check(root: Path = Path(".")) -> list[str]:
             names[name] += 1
             if events == {"pull_request_target"}:
                 trusted.add(name)
+            signing = (job.get("permissions") or {}).get("id-token") == "write"
+            steps = job.get("steps", [])
+            if signing and any(
+                "run" in s or s.get("uses", "").startswith("actions/checkout@") for s in steps
+            ):
+                errors.append(f"{path}: id-token job must not check out or run repository code")
             for step in job.get("steps", []):
                 for line in step.get("run", "").splitlines():
                     command = line.split("|", 1)[0]

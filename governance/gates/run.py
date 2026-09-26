@@ -40,14 +40,16 @@ def evaluate(
         ],
     )
     specs: dict[str, str] = {}
+    # Tasks come from the base: the constitution requires a task to exist before
+    # the change that implements it (spec PR first).
     for path in git(
-        "ls-tree", "-r", "--name-only", head, "--", "specs", cwd=candidate
+        "ls-tree", "-r", "--name-only", base, "--", "specs", cwd=candidate
     ).splitlines():
         match = re.fullmatch(r"specs/(\d{3})-[^/]+/tasks\.md", path)
         if match:
             if match[1] in specs:
                 raise ValueError("Ambiguous duplicate spec number")
-            specs[match[1]] = git("show", f"{head}:{path}", cwd=candidate)
+            specs[match[1]] = git("show", f"{base}:{path}", cwd=candidate)
     errors = trace(pr, specs) if mode == "trace" else agent_policy(pr)
     computed = risk(pr)
     return errors, computed
