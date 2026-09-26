@@ -98,3 +98,30 @@ Release and verification commands: `gh release create --help`, `gh attestation v
   It cannot enter staging/production and must reject branch provenance as main.
   Only a main dispatch can follow the production path. This does not bypass approvals.
   Native rehearsal results are recorded separately after execution.
+
+## Hosted verification
+
+- Implementation PR: https://github.com/hariscats/agentic-sdlc-governance/pull/6.
+  Hosted CI https://github.com/hariscats/agentic-sdlc-governance/actions/runs/36277828152
+  and CodeQL https://github.com/hariscats/agentic-sdlc-governance/actions/runs/36277828210
+  passed. Trusted-base gates failed closed because main has no governance module.
+- Metrics https://github.com/hariscats/agentic-sdlc-governance/actions/runs/36277826077
+  passed and uploaded the static dashboard and summary.
+- Native branch rehearsal
+  https://github.com/hariscats/agentic-sdlc-governance/actions/runs/36277826177
+  passed: source ZIP provenance and SPDX attestations verified, main provenance
+  rejected, staging/production skipped. Downloaded SPDX also passed exact signed
+  predicate comparison using `scripts.verify_sbom`. This is not a production release.
+- Dependency Review caught a real policy negative (run 36277828263):
+  missing Python-2.0.1 and 0BSD identifiers, plus a GPL classification for
+  typing-extensions 4.16.0. The upstream version's LICENSE explicitly says Python
+  is not distributed under GPL; GPL appears in historical compatibility wording.
+  Proposed correction adds the two Python/BSD identifiers and an **exact-version**
+  `pkg:pypi/typing-extensions@4.16.0` license exception, not a general GPL allowance.
+  Vulnerability checks remain enabled. This bootstrap policy change still requires
+  independent review; future versions do not inherit the exception.
+  Sources:
+  https://raw.githubusercontent.com/python/typing_extensions/4.16.0/LICENSE,
+  https://spdx.org/licenses/Python-2.0.1.html,
+  https://raw.githubusercontent.com/actions/dependency-review-action/a1d282b36b6f3519aa1f3fc636f609c47dddb294/action.yml,
+  https://raw.githubusercontent.com/actions/dependency-review-action/a1d282b36b6f3519aa1f3fc636f609c47dddb294/src/licenses.ts.
