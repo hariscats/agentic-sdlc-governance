@@ -32,6 +32,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Dry-run by default; only labelled demo resources")
     parser.add_argument("--apply", action="store_true")
     args = parser.parse_args()
+    # Validate local cleanup targets before any remote mutation.
+    state = Path(".demo-state")
+    database = state / "permits.db"
+    if args.apply and (state.is_symlink() or database.is_symlink()):
+        raise ValueError("Refusing symlinked .demo-state cleanup")
     prs = json.loads(
         command(
             "pr",
@@ -70,13 +75,7 @@ def main() -> None:
         for action in actions:
             command(*action)
         # Only the known demo database is removed; no wildcard or repository cleanup.
-        state = Path(".demo-state")
-        if state.is_symlink():
-            raise ValueError("Refusing symlinked .demo-state cleanup")
-        database = state / "permits.db"
-        if database.exists() or database.is_symlink():
-            if database.is_symlink():
-                raise ValueError("Refusing symlink database cleanup")
+        if database.exists():
             database.unlink()
 
 

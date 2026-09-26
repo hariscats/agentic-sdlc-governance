@@ -110,8 +110,41 @@ def test_reset_refuses_symlinked_state(tmp_path: Path, monkeypatch: pytest.Monke
     work.mkdir()
     (work / ".demo-state").symlink_to(outside)
     monkeypatch.chdir(work)
-    monkeypatch.setattr("scripts.reset_demo.command", lambda *args: "[]")
+    calls: list[tuple[str, ...]] = []
+
+    def command(*args: str) -> str:
+        calls.append(args)
+        return "[]"
+
+    monkeypatch.setattr("scripts.reset_demo.command", command)
     monkeypatch.setattr("sys.argv", ["reset", "--apply"])
     with pytest.raises(ValueError, match="symlinked"):
         reset_main()
+    assert calls == []
     assert (outside / "permits.db").read_text() == "keep"
+
+
+def test_pr_evidence_is_minimized() -> None:
+    from scripts.pr_evidence import project
+
+    pr = {
+        "number": 9,
+        "title": "feat(T020): decisions [spec:002]",
+        "author": {"login": "app/copilot-swe-agent"},
+        "labels": [{"name": "spec:002"}],
+        "reviews": [{"author": {"login": "arch"}, "state": "APPROVED", "body": "secret note"}],
+        "commits": [
+            {
+                "oid": "a" * 40,
+                "messageBody": "private message",
+                "authors": [{"email": "person@example.invalid", "name": "Person"}],
+            }
+        ],
+        "statusCheckRollup": [{"name": "CI", "conclusion": "SUCCESS"}],
+    }
+    evidence = project(pr)
+    text = json.dumps(evidence)
+    assert evidence["agent_authored"] is True
+    assert evidence["reviews"][0]["state"] == "APPROVED"
+    for leaked in ["secret note", "private message", "person@example.invalid"]:
+        assert leaked not in text
