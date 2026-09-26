@@ -161,3 +161,30 @@ Release and verification commands: `gh release create --help`, `gh attestation v
   independent reviewer, and trust-root installation. Custom-pattern push rejection,
   cloud delegation/requester approval, and production release remain unverified.
   Cloud automations drift and production administrator bypass require manual action.
+
+## Final recorded results
+
+| Check / scene | Result and evidence |
+|---|---|
+| Hosted CI | PASS, run 36278130782; 47 tests and 95.11% coverage |
+| Dependency Review | PASS after the documented license correction, run 36278130786 |
+| Metrics | PASS, run 36278128092; synthetic usage explicitly labelled, live personal-repository flow |
+| Scene 4: SQL negative/fix | PARTIAL: high SQL alert #1 in run 36278010553, then `fixed` after reversal in run 36278097138; CI also returns green in run 36278097133 |
+| Scene 4: other gates | Native trace/agent denials and dependency license negative demonstrated; custom-pattern push rejection and Autofix not demonstrated |
+| Scene 6: cryptographic verification | PASS for branch-only rehearsal, run 36278128120: provenance, SPDX, exact predicate binding, wrong-main rejection |
+| Scene 6: approved release | BLOCKED: staging/production deliberately skipped on build branch; no published production release |
+| Reset | PASS: actual demo PR #7 closed and remote branch deleted in 7.6 seconds; repeat completed in 5.6 seconds; four Feature 002 issues remain open/agent-ready |
+| Main enforcement | PR #6 remains BLOCKED; no direct main push, bypass actor, self-approval or merge |
+
+Run links use
+`https://github.com/hariscats/agentic-sdlc-governance/actions/runs/<run-id>`.
+Local `dist/v0.1.0-demo/evidence-v0.1.0-demo.zip` contains downloaded native
+**branch** artifacts and verified predicates, the post-reset PR inventory, specs,
+and the explicit configuration drift report. It does not assert production
+approval or export private hook logs. Native workflow artifacts are downloadable
+from run 36278128120. The dashboard was refreshed after reset.
+
+Optional gh-aw/automations were not enabled. The project is implemented and
+published for independent review, **not fully accepted end-to-end**. Remaining
+human/platform prerequisites are enumerated in SETUP-MANUAL rather than hidden
+behind fabricated success or weakened rules.

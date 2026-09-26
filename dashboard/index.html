@@ -14,18 +14,18 @@ No data is sent to external services by this page.</p>
 <svg viewBox="0 0 480 220" role="img" aria-label="Synthetic feature usage; exact counts below">
 <text x="0" y="20">cli: 1</text><rect x="160" y="5" width="50" height="22" fill="#175cd3"/><text x="0" y="60">cloud_agent: 1</text><rect x="160" y="45" width="50" height="22" fill="#175cd3"/><text x="0" y="100">code_review: 1</text><rect x="160" y="85" width="50" height="22" fill="#175cd3"/><text x="0" y="140">ide_agent: 1</text><rect x="160" y="125" width="50" height="22" fill="#175cd3"/><text x="0" y="180">ide_chat: 2</text><rect x="160" y="165" width="100" height="22" fill="#175cd3"/></svg><h2>Measured and illustrative results</h2>
 <pre>{
-  &quot;generated_at&quot;: &quot;2026-09-26T22:59:37.037376+00:00&quot;,
+  &quot;generated_at&quot;: &quot;2026-09-26T23:02:50.062818+00:00&quot;,
   &quot;repository&quot;: &quot;hariscats/agentic-sdlc-governance&quot;,
   &quot;usage&quot;: {
     &quot;source&quot;: &quot;synthetic&quot;,
     &quot;active_users&quot;: 3,
     &quot;engaged_users&quot;: 2,
     &quot;feature_users&quot;: {
-      &quot;cli&quot;: 1,
       &quot;ide_agent&quot;: 1,
       &quot;code_review&quot;: 1,
-      &quot;cloud_agent&quot;: 1,
-      &quot;ide_chat&quot;: 2
+      &quot;cli&quot;: 1,
+      &quot;ide_chat&quot;: 2,
+      &quot;cloud_agent&quot;: 1
     }
   },
   &quot;flow&quot;: {
@@ -34,19 +34,32 @@ No data is sent to external services by this page.</p>
     &quot;merged_other&quot;: 0,
     &quot;median_lead_hours&quot;: null,
     &quot;median_first_review_hours&quot;: 0.07527777777777778,
-    &quot;follow_up_commits&quot;: 6,
+    &quot;follow_up_commits&quot;: 10,
     &quot;gate_latest_conclusions&quot;: {
       &quot;Agent PR Policy Gate&quot;: {
-        &quot;failure&quot;: 1
+        &quot;failure&quot;: 2
       },
       &quot;CI&quot;: {
-        &quot;failure&quot;: 1
+        &quot;success&quot;: 4
       },
-      &quot;Spec Traceability Gate&quot;: {
-        &quot;failure&quot;: 2
+      &quot;CodeQL&quot;: {
+        &quot;success&quot;: 6
       },
       &quot;Dependency Review&quot;: {
         &quot;success&quot;: 2
+      },
+      &quot;Spec Traceability Gate&quot;: {
+        &quot;success&quot;: 1,
+        &quot;failure&quot;: 1
+      },
+      &quot;build&quot;: {
+        &quot;success&quot;: 1
+      },
+      &quot;collect&quot;: {
+        &quot;success&quot;: 1
+      },
+      &quot;branch-proof&quot;: {
+        &quot;success&quot;: 1
       }
     },
     &quot;gate_failure_rate_definition&quot;: &quot;Latest completed check per sampled PR, not all attempts&quot;,
@@ -59,9 +72,13 @@ No data is sent to external services by this page.</p>
     &quot;security_scope&quot;: &quot;All alerts returned for this repository; state counts, not a time series&quot;,
     &quot;gate_failure_rates&quot;: {
       &quot;Agent PR Policy Gate&quot;: 1.0,
-      &quot;CI&quot;: 1.0,
-      &quot;Spec Traceability Gate&quot;: 1.0,
-      &quot;Dependency Review&quot;: 0.0
+      &quot;CI&quot;: 0.0,
+      &quot;CodeQL&quot;: 0.0,
+      &quot;Dependency Review&quot;: 0.0,
+      &quot;Spec Traceability Gate&quot;: 0.5,
+      &quot;build&quot;: 0.0,
+      &quot;collect&quot;: 0.0,
+      &quot;branch-proof&quot;: 0.0
     }
   },
   &quot;flow_source&quot;: &quot;live (latest 100 PRs; bounded sample)&quot;
