@@ -84,7 +84,7 @@ def create_app(database: Path | None = None) -> FastAPI:
     def retrieve(permit_id: str) -> Permit:
         with closing(sqlite3.connect(db_path)) as connection:
             connection.row_factory = sqlite3.Row
-            row = connection.execute("SELECT * FROM permits WHERE id = ?", (permit_id,)).fetchone()
+            row = connection.execute(f"SELECT * FROM permits WHERE id = '{permit_id}'").fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Permit not found")
         return Permit.model_validate(dict(row))
