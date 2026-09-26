@@ -1,2 +1,62 @@
-# agentic-sdlc-governance
-Guardrails-as-Code: governed agentic SDLC reference demo; personal-private capability limits documented
+# Guardrails-as-Code: Governed Permit Intake
+
+A reference demo of **intent -> bounded agents -> automated gates -> human approval
+-> governed release -> audit evidence and outcomes**, owned by
+[`hariscats`](https://github.com/hariscats/agentic-sdlc-governance).
+
+The application is deliberately small. The governance system is the product.
+Feature 001 submits and retrieves fictional permits. Feature 002 is specified and
+reserved for the live demo. No real personal information or credentials belong here.
+
+## Run locally
+
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
+
+```bash
+uv sync --frozen
+uv run --frozen pytest --cov --cov-report=xml --junitxml=junit.xml
+uv run --frozen uvicorn src.app:app --host 127.0.0.1 --port 8000 --no-access-log
+```
+
+Open http://127.0.0.1:8000/docs. Submit a category (`building`, `event`,
+`environmental`) and a synthetic description of 10-500 printable characters.
+The API is **unauthenticated and loopback-only**, not a production agency service.
+
+## Rehearse governance without changing GitHub
+
+```bash
+uv run --frozen python -m scripts.rehearse
+uv run --frozen python -m metrics.collector --live-flow
+bash scripts/reset-demo.sh
+```
+
+The rehearsal applies the actual seeded SQL injection patch **only in a temporary
+copy**, proves a regression test rejects it, checks hook and policy denials, and
+builds a source ZIP, SPDX lockfile inventory, checksums, and evidence ZIP under
+`dist/v0.1.0-demo/`. Local integrity checks are **not signed attestations**.
+Open `dashboard/index.html` for a self-contained, no-network dashboard.
+Copilot usage is prominently labelled **SYNTHETIC DATA**; repository flow can be live.
+
+## Governance
+
+| Surface | Implementation |
+|---|---|
+| Intent | Versioned constitution; two specs, clarifications, plans, checklists and tasks |
+| Agents | Spec author, implementer, read-only reviewer and release-note drafter |
+| Tool boundary | Repository hooks plus conservative CLI allowlists; not an OS sandbox |
+| PR gates | CI, CodeQL, dependency review, spec trace and agent policy |
+| Human boundary | CODEOWNERS, approval of latest push, production self-review prevention |
+| Release | Main-only build, SPDX inventory, provenance/SBOM attestations, verification, environments |
+| Evidence | Per-file hashes, specs/tasks, available PR approvals/checks and config drift report |
+| Reset | Dry-run by default; only labelled demo PRs on `demo/*` and demo spec-002 issues |
+
+The repository was made **public with explicit approval** to enable native GitHub
+governance features. Company organizations, company telemetry and Azure are not used.
+Rulesets have no bypass actors. **Do not remove checks to merge a bootstrap PR.**
+Independent human acceptance, the initial trusted-gate installation, custom demo
+secret pattern, and any unresolved configuration drift are tracked in
+[SETUP-MANUAL](docs/SETUP-MANUAL.md). Code and local tests are not proof that a
+release or human approval has occurred.
+
+Start with [the 30-minute runbook](DEMO.md), [architecture](docs/ARCHITECTURE.md),
+[control mapping](docs/CONTROL-MAPPING.md), and [build evidence](docs/BUILD-LOG.md).

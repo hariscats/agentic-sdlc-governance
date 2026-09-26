@@ -1,0 +1,1 @@
+"""Permit intake demonstration."""
