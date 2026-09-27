@@ -70,6 +70,7 @@ simulated deployments; no external infrastructure exists.
 Evidence explicitly marks missing components. Its hash manifest detects accidental
 tampering but is not authenticated unless covered by a verified signed artifact.
 
-The initial trust-root installation is a distinct, unresolved bootstrap approval.
+The initial trust root was installed once through a logged, PR-only ruleset bypass
+(see BUILD-LOG); the ruleset was then restored to zero bypass actors.
 No workflow is allowed to quietly fall back from missing trusted base code to
 PR-controlled governance code.

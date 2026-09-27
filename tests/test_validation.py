@@ -10,6 +10,20 @@ from scripts.validate_repository import check
 from scripts.verify_sbom import bound
 
 
+def test_release_hands_missing_audit_to_production_approver() -> None:
+    import yaml
+
+    jobs = yaml.safe_load(Path(".github/workflows/release.yml").read_text())["jobs"]
+    verify = "\n".join(step.get("run", "") for step in jobs["verify"]["steps"])
+    # The preview endpoint rejects GITHUB_TOKEN (HTTP 403), so verify must not call it...
+    commands = [line.strip() for line in verify.splitlines()]
+    assert not any(line.startswith("bash scripts/audit-cloud-agent-config") for line in commands)
+    # ...and must tell the human production approver to run it instead.
+    assert "NOT COLLECTED" in verify and "GITHUB_STEP_SUMMARY" in verify
+    assert jobs["production"]["needs"] == "verify"
+    assert jobs["production"]["environment"] == "production"
+
+
 def test_workflow_ruleset_contract_and_negative(tmp_path: Path) -> None:
     assert check() == []
     shutil.copytree(".github", tmp_path / ".github")

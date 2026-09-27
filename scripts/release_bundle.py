@@ -128,6 +128,11 @@ def evidence(out: Path, root: Path = Path(".")) -> Path:
         "hook_audit": "not exported (local private files are not uploaded automatically)",
         "scan_summaries": "see PR check evidence and workflow artifacts; not inferred",
     }
+    if "cloud-agent-audit.json" in missing:
+        # The preview endpoint accepts OAuth/classic PAT tokens, not GITHUB_TOKEN (HTTP 403).
+        status["cloud_agent_audit"] = (
+            "not collected in Actions; run scripts/audit-cloud-agent-config.sh with a user token"
+        )
     files["evidence/status.json"] = json.dumps(status, indent=2).encode()
     files["evidence/file-hashes.json"] = json.dumps(
         {name: digest(data) for name, data in files.items()}, indent=2

@@ -9,7 +9,7 @@ The demo does not implement the full FedRAMP High baseline.
 
 | Control | Illustrative implementation | Evidence / limitation |
 |---|---|---|
-| CM-3 Configuration Change Control | Spec/task trace, required checks, human review | PR, check and approval snapshots; bootstrap pending |
+| CM-3 Configuration Change Control | Spec/task trace, required checks, human review | PR, check and approval snapshots; bootstrap bypass logged as rule suite 4243669608 |
 | CM-5 Access Restrictions for Change | Protected main/tags, agent path allowlist (src/, tests/, specs/), PR gates executed from the default branch | Active ruleset JSON; independent ownership needed |
 | AC-5 Separation of Duties | Codeowner review and production self-review prevention | A solo account does not meet independent duty separation |
 | SA-11 Developer Testing and Evaluation | Tests, coverage threshold, CodeQL, dependency review | JUnit, coverage, SARIF, check results |
