@@ -30,8 +30,9 @@ Organization/enterprise telemetry remains inapplicable: usage fixtures are label
    `scripts/audit-cloud-agent-config.sh` reports `pass`. The endpoint supports GET
    only, and per its docs accepts OAuth app tokens or classic PATs with `repo` scope.
    The release workflow's `GITHUB_TOKEN` gets HTTP 403, so the evidence pack records
-   this audit as missing. Run it locally rather than storing a broad classic PAT as a
-   secret. Never turn off the firewall to make setup easier.
+   this audit as missing and the `verify` summary hands it to the production
+   approver. They must run it locally and see `pass` before approving. This avoids
+   storing a broad classic PAT as a secret. Never turn off the firewall to make setup easier.
 5. **Configure the custom secret pattern** `DEMOSECRET_[A-Z0-9]{24}` and enable
    push protection for that pattern. Provider push protection is not evidence that
    this custom pattern is active. Generate examples at runtime, never commit them.

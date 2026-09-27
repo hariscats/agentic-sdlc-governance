@@ -132,6 +132,13 @@ jobs:
           python3 -m scripts.verify_sbom "dist/$VERSION/sbom.spdx.json" .demo-state/sbom-verification.json
           python3 -m scripts.pr_evidence
           python3 -m scripts.release_bundle evidence "$VERSION"
+          if [ ! -f .demo-state/cloud-agent-audit.json ]; then
+            # GITHUB_TOKEN cannot read the preview endpoint; the production approver decides.
+            {
+              echo "### Cloud-agent configuration audit: NOT COLLECTED"
+              echo "Before approving production, run \`bash scripts/audit-cloud-agent-config.sh\` with a user token and confirm \`\"status\": \"pass\"\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: verified-release

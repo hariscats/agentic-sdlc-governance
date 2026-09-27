@@ -275,5 +275,5 @@ First `main` release dispatch (`v0.1.0`, run 36282787385):
 - **Passed:** build → attest → staging (simulated).
 - **Verified:** `verify` checked provenance and the SPDX attestation with `--source-ref refs/heads/main --source-digest e2b02b3`. Local `gh attestation verify` confirmed the certificate's `sourceRepositoryRef` is `refs/heads/main` and its digest is `e2b02b3`. A copy with one appended byte failed.
 - **Failed:** the same `verify` job then hit `gh: Resource not accessible by integration (HTTP 403)` from `scripts/audit-cloud-agent-config.sh`. The preview endpoint documents OAuth app and classic PAT (`repo`) tokens only. Build-branch runs skip `verify`, so only a `main` release could reveal this.
-- **Fix:** `verify` no longer calls the endpoint, and the evidence pack names the audit as missing with the reason. The audit stays a local presenter step. A broad classic PAT secret was rejected on least-privilege grounds.
+- **Fix:** `verify` no longer calls the endpoint. The evidence pack names the audit as missing with the reason, and the job summary tells the production approver to run it and see `pass` before approving. A regression test pins this. A broad classic PAT secret was rejected on least-privilege grounds.
 - **Not reached:** production was skipped, so no release or tag was published.

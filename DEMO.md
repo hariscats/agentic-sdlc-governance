@@ -12,13 +12,13 @@ approvals and a real release.
 ```bash
 uv sync --frozen
 uv run --frozen python -m metrics.collector --live-flow   # refresh dashboard flow metrics
-run=$(gh run list --repo hariscats/agentic-sdlc-governance --workflow release.yml \
-  --branch main --limit 1 --json databaseId --jq '.[0].databaseId')
-gh run download "$run" --repo hariscats/agentic-sdlc-governance -n release-candidate -D /tmp/proof
+# Newest main release run that actually uploaded a release candidate.
+for run in $(gh run list --repo hariscats/agentic-sdlc-governance --workflow release.yml \
+  --branch main --limit 10 --json databaseId --jq '.[].databaseId'); do
+  gh run download "$run" --repo hariscats/agentic-sdlc-governance -n release-candidate \
+    -D /tmp/proof 2>/dev/null && echo "release candidate from run $run" && break
+done
 ```
-
-If the latest run is still waiting at production and the download fails, use the
-completed `main` run `36282787385` instead.
 
 Open two browser tabs: [PR #7's checks](https://github.com/hariscats/agentic-sdlc-governance/pull/7/checks)
 and the [`main-protection` ruleset](https://github.com/hariscats/agentic-sdlc-governance/rules).
@@ -139,8 +139,9 @@ gh run list --repo hariscats/agentic-sdlc-governance --workflow release.yml --li
 
 The first `main` run (`36282787385`) passed build, attest and staging and verified
 both attestations as `main` provenance. It then failed collecting evidence, because
-`GITHUB_TOKEN` cannot read the cloud-agent configuration. The evidence pack now
-records that audit as missing instead; run it locally in scene 7.
+`GITHUB_TOKEN` cannot read the cloud-agent configuration. Now the evidence pack
+records that audit as missing, and the `verify` summary tells the production
+approver to run `bash scripts/audit-cloud-agent-config.sh` and see `pass` first.
 The run must stop at production approval. The user who starts it cannot also approve it.
 Verification in the workflow checks both SLSA provenance and SPDX predicate.
 After downloading the artifact, the equivalent provenance check is:
