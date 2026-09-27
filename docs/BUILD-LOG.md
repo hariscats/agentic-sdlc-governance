@@ -215,3 +215,42 @@ downloads `release-candidate` from the latest successful build-branch release ru
 `refs/heads/build/governance-reference` at `806c430`. A copy with one appended byte
 failed with HTTP 404 because no attestation matches its digest. `gh` prints nothing
 on success without a TTY, so scripted checks use `--format json`.
+
+## End-to-end demo test
+
+Every scene was run against the live repository, or recorded as BLOCKED with the
+reason. Nothing was bypassed, and no approval was faked.
+
+| Scene | Result | Evidence |
+|---|---|---|
+| Quick demo, pre-demo block | PASS | uv sync, live metrics refresh, `release-candidate` download to `/tmp/proof` in 5.1 s |
+| Quick demo, beats 1–3 (`rehearse --pause`) | PASS | Real hook wrapper: 4 DENY, 1 ALLOW; both gates BLOCK the 401-line `app/copilot-swe-agent` PR; the seeded patch fails its test; evidence pack built. About 1 s of runtime. |
+| Quick demo, scene 3 (attestation) | PASS | `gh attestation verify` printed "✓ Verification succeeded!" (7 attestations for reproducible digest `450b29…`); a copy with one appended byte failed with HTTP 404 |
+| 1. Governed intent | PASS (blocked as designed) | Spec PR #5 is `OPEN` / `BLOCKED` pending independent architecture review |
+| 2. Bounded local agent (live CLI 1.0.88) | PASS, with one limit | `--deny-tool=shell` stopped shell use, and the agent declined to edit `ci.yml`. In a trusted disposable clone: "Denied by preToolUse hook" for `.git/config` and a full JSONL lifecycle. The T020 proposal took 21 s. No live protected-*edit* denial: the model refused first. |
+| 3. Cloud agent | BLOCKED | Hooks and setup steps must be on `main` first (SETUP-MANUAL 6) |
+| 4. Negative gates (live PR #8) | PASS | CI failed (runs 36280914503, 36280916892); CodeQL alert #1 `py/sql-injection` (high) at `src/app.py:88`; self-approval rejected with "Can not approve your own pull request". The state is `UNSTABLE`, not `BLOCKED`, because the build branch is outside `main-protection`. |
+| 4. Secret push protection | NOT RUN | Custom pattern not configured (SETUP-MANUAL 5) |
+| 5. Humans decide | PASS (config) | Production: required reviewer, `prevent_self_review=true`, `main` only; `can_admins_bypass=true` still needs the manual fix |
+| 6. Provable release on `main` | BLOCKED | Dispatch returns HTTP 422 because `main` has no workflows before bootstrap; build-branch chain `build → attest → branch-proof` passed |
+| 7. Outcomes and reset | PASS | Dashboard has no external references, a SYNTHETIC banner and live flow data. Config audit reports only drift `is_automations_enabled`. Reset `--apply` took 8 s: PR #8 closed, its branches deleted, issues #1–#4 relabelled. A second apply was idempotent. |
+
+Hardening from this test and the automatic Copilot reviews:
+
+- `release.yml` is split so only the no-checkout `attest` job holds `id-token: write`. The validator rejects signing jobs that check out or run code.
+- PR evidence keeps only audit facts: reviewer logins and states, check conclusions, commit SHAs and an agent flag. Review bodies, commit messages and emails are dropped.
+- Reset now validates local paths before any remote action, deletes local `demo/*` branches (`gh pr close --repo` removes only the remote one), and refuses to run while you are on a demo branch.
+- The Agent PR Policy Gate now enforces the hooks' `src/`, `tests/` and `specs/` allowlist (`policy.EDITABLE`), so local and cloud agents share one boundary.
+- Other fixes:
+  - hooks deny empty paths;
+  - task IDs match `T\d{3,}` and are read from the base branch;
+  - descriptions must be printable;
+  - metrics count only the latest result per check.
+
+Declined, with reasons:
+
+- `gh pr list --state merged` is valid (gh 2.92 help; live call).
+- The rehearsal shows a simulated command on screen, but the audit log stores only hashes.
+- CodeQL keeps `security-events: write` on `pull_request`. This is GitHub's documented setup: Python `build-mode: none` executes no PR code, and fork PRs get a read-only token.
+- The validator already scans the full `run` line for worktree commands. A regression test covers `printf x | git checkout`.
+- Three `tasks.md` formatting findings were docs-only.

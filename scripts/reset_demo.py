@@ -6,10 +6,22 @@ from pathlib import Path
 from typing import Any
 
 REPO = "hariscats/agentic-sdlc-governance"
+DEMO_BRANCH = re.compile(r"demo/[a-z0-9][a-z0-9-]*")
 
 
 def command(*args: str) -> str:
     return subprocess.check_output(["gh", *args, "--repo", REPO], text=True)
+
+
+def git(*args: str) -> str:
+    return subprocess.check_output(["git", *args], text=True)
+
+
+def local_demo_branches() -> tuple[list[str], str]:
+    names = git("for-each-ref", "--format=%(refname:short)", "refs/heads/demo/").split()
+    return [name for name in names if DEMO_BRANCH.fullmatch(name)], git(
+        "branch", "--show-current"
+    ).strip()
 
 
 def plan(prs: list[dict[str, Any]], issues: list[dict[str, Any]]) -> list[list[str]]:
@@ -18,7 +30,7 @@ def plan(prs: list[dict[str, Any]], issues: list[dict[str, Any]]) -> list[list[s
         if (
             pr["state"] == "OPEN"
             and not pr["isCrossRepository"]
-            and re.fullmatch(r"demo/[a-z0-9][a-z0-9-]*", pr["headRefName"])
+            and DEMO_BRANCH.fullmatch(pr["headRefName"])
         ):
             actions.append(["pr", "close", str(pr["number"]), "--delete-branch"])
     for issue in issues:
@@ -37,6 +49,10 @@ def main() -> None:
     database = state / "permits.db"
     if args.apply and (state.is_symlink() or database.is_symlink()):
         raise ValueError("Refusing symlinked .demo-state cleanup")
+    # `gh pr close --repo --delete-branch` removes only the remote branch.
+    branches, current = local_demo_branches()
+    if args.apply and current in branches:
+        raise ValueError(f"Switch off {current} before reset; local demo branches are deleted")
     prs = json.loads(
         command(
             "pr",
@@ -70,10 +86,13 @@ def main() -> None:
     if len(prs) == 100 or len(issues) == 100:
         raise RuntimeError("Reset resource limit reached; refusing a potentially partial reset")
     actions = plan(prs, issues)
-    print(json.dumps({"apply": args.apply, "actions": actions}, indent=2))
+    local = [["branch", "-D", name] for name in branches]
+    print(json.dumps({"apply": args.apply, "actions": actions, "local": local}, indent=2))
     if args.apply:
         for action in actions:
             command(*action)
+        for action in local:
+            git(*action)
         # Only the known demo database is removed; no wildcard or repository cleanup.
         if database.exists():
             database.unlink()

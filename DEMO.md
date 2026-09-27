@@ -89,6 +89,11 @@ bash scripts/agent-run.sh implementer \
 uv run --frozen pytest
 ```
 
+Repository hooks load only if the clone is a trusted folder: launch `copilot` in it
+once and accept the trust prompt (SETUP-MANUAL prerequisite 9). Without that, the
+CLI tool restrictions still apply but no hook decisions or audit JSONL appear.
+`scripts/reset-demo.sh --apply` deletes local `demo/*` branches, so switch back first.
+
 Use `uv run --frozen python -m scripts.rehearse` to exercise denied protected edits and
 pipe-to-shell commands through the real hook wrapper without executing either. Inspect `.agent-audit/*.jsonl` locally;
 do not publish the whole directory. The wrapper denies shell even when execute is in
@@ -108,8 +113,12 @@ Expected: the injection assertion fails. Do not deploy the vulnerable applicatio
 Create a labelled `demo` PR with an actual linked issue, spec:001 and T012.
 Commit/push only the deliberately vulnerable source change, never secrets.
 In CodeQL, inspect the tainted SQL finding and request Autofix if available.
-Revert the patch with `git apply -R demo/patches/seeded-vuln.patch`, rerun tests,
-and submit a new commit rather than rewriting history.
+Try `gh pr review <n> --approve` as the author: GitHub answers "Can not approve your
+own pull request". Clean up with `git switch -` and `bash scripts/reset-demo.sh --apply`,
+which closes the PR and deletes the remote and local demo branch.
+Before bootstrap the PR can only target the build branch, which `main-protection`
+does not cover: checks fail but GitHub reports `UNSTABLE`, not `BLOCKED`. After
+bootstrap, target `main` to show the ruleset blocking the merge.
 
 For the secret scene, use `python3 scripts/demo-secret.py` to generate a value at runtime.
 Use a **disposable demo worktree/branch** and a temporary file. A GitHub administrator
@@ -125,6 +134,8 @@ gh workflow run release.yml --repo hariscats/agentic-sdlc-governance --ref main 
 gh run list --repo hariscats/agentic-sdlc-governance --workflow release.yml --limit 5
 ```
 
+Before bootstrap, `main` has no workflows and this dispatch returns HTTP 422
+"Workflow does not have 'workflow_dispatch' trigger"; label the scene BLOCKED.
 The run must stop at production approval. The user who starts it cannot also approve it.
 Verification in the workflow checks both SLSA provenance and SPDX predicate.
 After downloading the artifact, the equivalent provenance check is:
@@ -141,8 +152,9 @@ the cryptographic portion only, not a replacement for this approved-release scen
 
 ### Recorded setup rehearsal
 
-See BUILD-LOG for run URLs and reset results. PR #7, targeting the unmerged build
-branch, demonstrated a high CodeQL SQL injection alert, the failing regression test,
+See BUILD-LOG for run URLs and reset results. PR #8 repeated scene 4 live and was
+removed by reset in 8 seconds. PR #7, targeting the unmerged build branch,
+demonstrated a high CodeQL SQL injection alert, the failing regression test,
 and trace/agent policy denials. The unsafe patch was reversed manually; no Autofix
 or custom-pattern push rejection is claimed. The trace and agent gates now run on
 `pull_request_target` from `main`, so after the bootstrap merge they evaluate PRs

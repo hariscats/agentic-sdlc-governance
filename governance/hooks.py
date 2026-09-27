@@ -7,11 +7,9 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from governance.gates.policy import protected
+from governance.gates.policy import EDITABLE, protected
 
 ROOT = Path(__file__).resolve().parents[1]
-# Exact case on purpose: anything else (root modules, .venv, conftest.py) is denied.
-EDITABLE = ("src/", "tests/", "specs/")
 SAFE_COMMANDS = {
     "git status --short",
     "git diff",

@@ -35,7 +35,9 @@ as data through git show, and handles deleted/renamed paths without trusting lab
 Tests cover exact 400/401-line boundaries. Agent detection normalizes the verified
 cloud-agent identities (`app/copilot-swe-agent` from `gh`, `Copilot` from REST, the
 `copilot-swe-agent[bot]` commit author and its `+Copilot@users.noreply.github.com`
-email) plus the `agent-authored` label and Copilot co-author trailers. Protected-path
+email) plus the `agent-authored` label and Copilot co-author trailers. Agent PRs may
+change only exact-case `src/`, `tests/` and `specs/`, the same allowlist the hooks use
+(`policy.EDITABLE`), so local and cloud agents share one boundary. Protected-path
 matching is case-insensitive, so `GOVERNANCE/` counts as `governance/`.
 
 High-risk approval is native, not reimplemented: the ruleset requires code-owner
@@ -50,7 +52,7 @@ default branch, so a PR cannot rewrite its own gate. PR commits are fetched as G
 objects and read with `git diff/log/show/ls-tree` only. They are never checked out,
 imported or executed. Checks attach to the PR head commit. CI, CodeQL and dependency
 review must run PR code, so they stay on `pull_request`; CODEOWNERS on `.github/` and
-the agent gate's protected-path rule guard their workflow files. The risk labeller
+the agent gate's path allowlist guard their workflow files. The risk labeller
 uses metadata only; the gate recomputes risk rather than trusting the label.
 
 Repository hooks are not a sandbox or a replacement for server-side enforcement.

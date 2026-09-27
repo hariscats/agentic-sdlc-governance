@@ -30,6 +30,10 @@ def test_positive_boundary() -> None:
         ("labels", [], "label"),
         ("files", [Change(".github/workflows/ci.yml")], "protected"),
         ("files", [Change("src/x.py", ".github/workflows/ci.yml")], "protected"),
+        ("files", [Change("README.md")], "outside"),
+        ("files", [Change("metrics/collector.py")], "outside"),
+        ("files", [Change("SRC/app.py")], "outside"),
+        ("files", [Change("docs/app.py", "src/app.py")], "outside"),
     ],
 )
 def test_agent_negative(field: str, value: object, message: str) -> None:

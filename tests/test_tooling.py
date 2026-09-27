@@ -124,6 +124,38 @@ def test_reset_refuses_symlinked_state(tmp_path: Path, monkeypatch: pytest.Monke
     assert (outside / "permits.db").read_text() == "keep"
 
 
+def test_reset_deletes_local_demo_branches_after_remote(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    calls: list[tuple[str, ...]] = []
+    monkeypatch.setattr(
+        "scripts.reset_demo.command", lambda *args: calls.append(("gh", *args)) or "[]"
+    )
+    monkeypatch.setattr("scripts.reset_demo.git", lambda *args: calls.append(("git", *args)) or "")
+    monkeypatch.setattr(
+        "scripts.reset_demo.local_demo_branches", lambda: (["demo/seeded-vuln"], "main")
+    )
+    monkeypatch.setattr("sys.argv", ["reset", "--apply"])
+    reset_main()
+    assert calls[-1] == ("git", "branch", "-D", "demo/seeded-vuln")
+    assert all(call[0] == "gh" for call in calls[:-1])
+
+
+def test_reset_refuses_current_demo_branch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    calls: list[tuple[str, ...]] = []
+    monkeypatch.setattr("scripts.reset_demo.command", lambda *args: calls.append(args) or "[]")
+    monkeypatch.setattr(
+        "scripts.reset_demo.local_demo_branches",
+        lambda: (["demo/local-task"], "demo/local-task"),
+    )
+    monkeypatch.setattr("sys.argv", ["reset", "--apply"])
+    with pytest.raises(ValueError, match="Switch off demo/local-task"):
+        reset_main()
+    assert calls == []
+
+
 def test_pr_evidence_is_minimized() -> None:
     from scripts.pr_evidence import project
 

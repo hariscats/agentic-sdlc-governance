@@ -11,6 +11,9 @@ PROTECTED = (
     "pyproject.toml",
     "uv.lock",
 )
+# Agent edit allowlist shared by hooks and the server gate. Exact case on purpose:
+# anything else (root modules, .venv, conftest.py, SRC/) is denied.
+EDITABLE = ("src/", "tests/", "specs/")
 TASK = re.compile(r"\bT\d{3,}\b")
 SPEC = re.compile(r"\bspec:(\d{3})\b")
 # gh reports app authors as "app/<slug>"; REST reports the cloud agent as "Copilot".
@@ -123,4 +126,7 @@ def agent_policy(pr: PullRequest, max_lines: int = 400) -> list[str]:
     forbidden = [p for p in paths(pr) if protected(p)]
     if forbidden:
         errors.append("Agent changed protected paths: " + ", ".join(forbidden))
+    outside = [p for p in paths(pr) if not protected(p) and not p.startswith(EDITABLE)]
+    if outside:
+        errors.append("Agent changed paths outside src/, tests/, specs/: " + ", ".join(outside))
     return errors

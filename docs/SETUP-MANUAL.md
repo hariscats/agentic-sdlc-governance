@@ -16,7 +16,7 @@ Organization/enterprise telemetry remains inapplicable: usage fixtures are label
    required checks never report on the installation PR, so it stays blocked (fail closed). An independently
    reviewed platform bootstrap procedure is required before normal task PRs can
    pass. The initial large, agent-coauthored governance PR also intentionally
-   violates the ordinary 400-line/protected-path policy. Do not silently relabel
+   violates the ordinary 400-line/agent path policy. Do not silently relabel
    it human, bypass rules, or claim it merged through the normal task gates.
    Decide and record an explicit bootstrap exception outside the normal live-demo
    path, or have a platform owner install the trust root before enabling the final
@@ -48,6 +48,12 @@ Organization/enterprise telemetry remains inapplicable: usage fixtures are label
    account for signing (for example, an authorized GitHub-signed squash once all
    other prerequisites are satisfied). No unverified signing identity was installed.
    https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification
+9. **Trust the repository folder in Copilot CLI once.** Repository hooks
+   (`.github/hooks/governance.json`) load only from a trusted folder, including in
+   `copilot -p` mode. Launch `copilot` interactively in the clone and accept the
+   folder trust prompt; it is stored as `trustedFolders` in `~/.copilot/config.json`
+   (`copilot help config`). Never set `COPILOT_ALLOW_ALL=true` to get this effect;
+   `scripts/agent-run.sh` unsets it. Custom agents (`--agent`) load either way.
 
 ## Verified references
 
@@ -73,10 +79,13 @@ Organization/enterprise telemetry remains inapplicable: usage fixtures are label
   for a requester-identity rule; do not claim equivalence.
 - **TODO(verify):** PowerShell hook wrapper on Windows; only the shared Python policy
   and Bash wrapper are exercised on this macOS host.
-- **TODO(verify):** Installed CLI 1.0.88 noninteractive smoke produced no hook audit
-  record. Do not claim repository hooks loaded. Use the explicit tool restrictions
-  in `scripts/agent-run.sh`; demonstrate policy decisions directly until actual
-  CLI hook loading is confirmed.
+- **Verified (CLI 1.0.88):** repository hooks load in `copilot -p` mode only when the
+  folder is trusted (prerequisite 9). In an untrusted disposable clone no audit was
+  written; after trusting it, the CLI printed "Denied by preToolUse hook" for a
+  `.git/config` read and the full JSONL lifecycle was recorded. The explicit tool
+  restrictions in `scripts/agent-run.sh` apply either way. A live hook denial of a
+  protected *edit* was not observed because the model refused before calling the
+  tool; `scripts.rehearse` exercises that path through the real wrapper.
 - Agent identity signals were verified on public cloud-agent PRs (`gh`:
   `app/copilot-swe-agent`; REST: `Copilot`; commits: `copilot-swe-agent[bot]` with a
   `+Copilot@users.noreply.github.com` email). The `agent-authored` label and Copilot
@@ -84,7 +93,7 @@ Organization/enterprise telemetry remains inapplicable: usage fixtures are label
   provenance cannot be identified infallibly by metadata.
 - **TODO(verify):** CI, CodeQL and Dependency Review run PR-controlled workflow YAML
   on `pull_request`, so a PR could edit them or add a job with a required check's
-  name. CODEOWNERS review of `.github/`, the agent gate's protected-path rule and the
+  name. CODEOWNERS review of `.github/`, the agent gate's path allowlist and the
   validator's duplicate-name rule reduce this risk. How GitHub resolves two
   same-named check runs is not verified. Organization-level required workflows are
   not configured for this personal repository.
