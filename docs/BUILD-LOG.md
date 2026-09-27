@@ -277,3 +277,15 @@ First `main` release dispatch (`v0.1.0`, run 36282787385):
 - **Failed:** the same `verify` job then hit `gh: Resource not accessible by integration (HTTP 403)` from `scripts/audit-cloud-agent-config.sh`. The preview endpoint documents OAuth app and classic PAT (`repo`) tokens only. Build-branch runs skip `verify`, so only a `main` release could reveal this.
 - **Fix:** `verify` no longer calls the endpoint. The evidence pack names the audit as missing with the reason, and the job summary tells the production approver to run it and see `pass` before approving. A regression test pins this. A broad classic PAT secret was rejected on least-privilege grounds.
 - **Not reached:** production was skipped, so no release or tag was published.
+
+## Post-bootstrap release and README rerun guide
+
+| Step | Evidence |
+|---|---|
+| PR #10 merged by `hariscats` at 2026-09-27T00:57:31Z through a logged, PR-only bypass | Commit `c5fb609`; rule suite `4243839155`, result `bypass`. The sole code owner cannot approve their own PR. |
+| Bypass removed with `bash scripts/apply-rulesets.sh` | `main-protection`: `enforcement: active`, 0 bypass actors |
+| Quick demo rerun from `main` | `uv run --frozen python -m scripts.rehearse`: all 3 beats passed |
+| Release `v0.1.0` dispatched on `main` (run 36284728209) | build, attest, staging and verify succeeded; production is waiting. `pending_deployments` reports `current_user_can_approve: false` for the dispatcher. |
+| Artifact from a run waiting at production | `gh run download -n release-candidate` succeeded. This settles the earlier open question. |
+| Local verification | `gh attestation verify --source-ref refs/heads/main`: `sourceRepositoryRef` is `refs/heads/main`, digest `c5fb609`. A copy with one appended byte was rejected. |
+| README | Added a strictly-for-demo disclaimer and the end-to-end rerun guide (prep, tabs, scenes, benefits, limits, reset). Ruleset and PR URLs returned HTTP 200. |

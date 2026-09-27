@@ -12,11 +12,15 @@ approvals and a real release.
 ```bash
 uv sync --frozen
 uv run --frozen python -m metrics.collector --live-flow   # refresh dashboard flow metrics
-# Newest main release run that actually uploaded a release candidate.
+# Newest main release run whose verify job passed. The artifact is uploaded during
+# build, before attestation, so a later failure can leave an unverified candidate.
+rm -rf /tmp/proof
 for run in $(gh run list --repo hariscats/agentic-sdlc-governance --workflow release.yml \
   --branch main --limit 10 --json databaseId --jq '.[].databaseId'); do
+  [ "$(gh run view "$run" --repo hariscats/agentic-sdlc-governance --json jobs \
+    --jq '.jobs[] | select(.name=="verify") | .conclusion')" = success ] || continue
   gh run download "$run" --repo hariscats/agentic-sdlc-governance -n release-candidate \
-    -D /tmp/proof 2>/dev/null && echo "release candidate from run $run" && break
+    -D /tmp/proof 2>/dev/null && echo "verified release candidate from run $run" && break
 done
 ```
 
@@ -32,7 +36,7 @@ uv run --frozen python -m scripts.rehearse --pause
 | Scene | Min | What happens | Talk track |
 |---|---:|---|---|
 | **1. The agent can't go rogue** | 3 | Beat 1: an agent tries to turn off CI, pipe a script to a shell, read an SSH key and plant `json.py` to trick the hook. All four are **DENIED** by the real hook wrapper; only the in-scope `src/app.py` edit is **ALLOWED**. Then run `tail -n 3 .agent-audit/*.jsonl`. | "The same hook file the Copilot CLI loads makes these decisions. Shell is an allow list, not a deny list. Every decision is audited, with arguments hashed rather than stored." |
-| **2. Gates catch what slips through** | 4 | Beat 2: a 401-line cloud-agent PR with no spec, task, issue or tests is **BLOCKED** by both custom gates, and the seeded SQL-injection patch fails CI. Switch to PR #7's checks for the real CodeQL high alert and gate failures, then to the ruleset: required checks, code-owner review, signed commits, **no bypass actors**. | "Humans and agents face the same gates. The trusted gates run from `main`, so a PR cannot rewrite its own gate. Even installing these gates is on the record: the one bootstrap merge was a logged, PR-only bypass, and the ruleset is back to zero bypass actors." |
+| **2. Gates catch what slips through** | 4 | Beat 2: a 401-line cloud-agent PR with no spec, task, issue or tests is **BLOCKED** by both custom gates, and the seeded SQL-injection patch fails CI. Switch to PR #7's checks for the real CodeQL high alert and gate failures, then to the ruleset: required checks, code-owner review, signed commits, **no bypass actors**. | "Humans and agents face the same gates. The trusted gates run from `main`, so a PR cannot rewrite its own gate. Even exceptions are on the record: every owner merge without an independent review, starting with the bootstrap, was a logged, PR-only bypass, and the ruleset is back to zero bypass actors." |
 | **3. Proof, not promises** | 3 | Beat 3 builds the evidence pack. Then run the two verify commands below: the real build passes and one appended byte fails. Finally run `open dashboard/index.html`. | "Provenance is signed by the release workflow, not asserted in a slide. The usage panel is clearly labelled SYNTHETIC; flow metrics can be live." |
 
 Scene 3 commands:
@@ -142,6 +146,8 @@ both attestations as `main` provenance. It then failed collecting evidence, beca
 `GITHUB_TOKEN` cannot read the cloud-agent configuration. Now the evidence pack
 records that audit as missing, and the `verify` summary tells the production
 approver to run `bash scripts/audit-cloud-agent-config.sh` and see `pass` first.
+With that fix, run `36284728209` passed build, attest, staging and verify and is
+waiting at production.
 The run must stop at production approval. The user who starts it cannot also approve it.
 Verification in the workflow checks both SLSA provenance and SPDX predicate.
 After downloading the artifact, the equivalent provenance check is:
