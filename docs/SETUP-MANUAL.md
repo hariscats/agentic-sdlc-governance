@@ -43,7 +43,7 @@ Organization/enterprise telemetry remains inapplicable: usage fixtures are label
 7. **Rehearse an approved native release.** The first `main` dispatch (run
    `36282787385`) passed build, attest and staging and verified both attestations
    as `main` provenance, then failed at the cloud-agent audit (item 4; fixed after
-   bootstrap). Run `36284728209` then passed through `verify` and waits at
+   bootstrap). A later run, `36284728209`, passed `verify` and is waiting at
    production. A different authorized actor must approve production under the
    self-review restriction. No production approval or published release is claimed.
 8. **Use verified signed commits for acceptance.** Local setup commits are unsigned.

@@ -34,9 +34,11 @@ The API is **unauthenticated and loopback-only**, not a production agency servic
 
 ## Rerun the demo end to end
 
-The core demo takes about 10 minutes and needs only a terminal and a browser. It
-changes nothing on GitHub. [DEMO.md](DEMO.md) has the full talk track, fallbacks
-and an extended 30-minute runbook with live agents, approvals and a new release.
+The three scenes take about 10 minutes, need only a terminal and a browser, and
+change nothing on GitHub. The prep and reset steps do change GitHub: they close
+labelled demo PRs, delete `demo/*` branches and relabel the spec-002 issues.
+[DEMO.md](DEMO.md) has the full talk track, fallbacks and an extended 30-minute
+runbook with live agents, approvals and a new release.
 
 ### 1. Prepare (about 10 minutes before)
 
@@ -44,18 +46,22 @@ and an extended 30-minute runbook with live agents, approvals and a new release.
 git switch main && git pull --ff-only
 uv sync --frozen
 bash scripts/reset-demo.sh           # dry run: lists what would be closed or deleted
-bash scripts/reset-demo.sh --apply   # start from a clean slate
+bash scripts/reset-demo.sh --apply   # changes GitHub: closes demo PRs, deletes demo branches
 uv run --frozen python -m metrics.collector --live-flow   # refresh dashboard flow metrics
-# Download the newest signed release candidate built on main (used in scene 3).
+# Download the newest release candidate from a main run whose verify job passed.
+# (The artifact is uploaded during build, before it is attested and verified.)
 rm -rf /tmp/proof
 for run in $(gh run list --repo hariscats/agentic-sdlc-governance --workflow release.yml \
   --branch main --limit 10 --json databaseId --jq '.[].databaseId'); do
+  [ "$(gh run view "$run" --repo hariscats/agentic-sdlc-governance --json jobs \
+    --jq '.jobs[] | select(.name=="verify") | .conclusion')" = success ] || continue
   gh run download "$run" --repo hariscats/agentic-sdlc-governance -n release-candidate \
-    -D /tmp/proof 2>/dev/null && echo "release candidate from run $run" && break
+    -D /tmp/proof 2>/dev/null && echo "verified release candidate from run $run" && break
 done
 ```
 
-If the loop prints nothing, no recent `main` run still has its artifact (they expire). Start a new release with
+If the loop prints nothing, no recent `main` run both passed `verify` and still has
+its artifact (artifacts expire). Start a new release with
 `gh workflow run release.yml --repo hariscats/agentic-sdlc-governance --ref main -f version=v0.1.1`
 and rerun the loop once `verify` passes (about 3 minutes). The run then waits at
 production approval, which is itself something to show.

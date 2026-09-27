@@ -12,11 +12,15 @@ approvals and a real release.
 ```bash
 uv sync --frozen
 uv run --frozen python -m metrics.collector --live-flow   # refresh dashboard flow metrics
-# Newest main release run that actually uploaded a release candidate.
+# Newest main release run whose verify job passed. The artifact is uploaded during
+# build, before attestation, so a later failure can leave an unverified candidate.
+rm -rf /tmp/proof
 for run in $(gh run list --repo hariscats/agentic-sdlc-governance --workflow release.yml \
   --branch main --limit 10 --json databaseId --jq '.[].databaseId'); do
+  [ "$(gh run view "$run" --repo hariscats/agentic-sdlc-governance --json jobs \
+    --jq '.jobs[] | select(.name=="verify") | .conclusion')" = success ] || continue
   gh run download "$run" --repo hariscats/agentic-sdlc-governance -n release-candidate \
-    -D /tmp/proof 2>/dev/null && echo "release candidate from run $run" && break
+    -D /tmp/proof 2>/dev/null && echo "verified release candidate from run $run" && break
 done
 ```
 
