@@ -9,40 +9,41 @@ Organization/enterprise telemetry remains inapplicable: usage fixtures are label
 
 ## Human decisions that automation must not fabricate
 
-1. **Bootstrap the trust root with independent approval.** The initial main contains
-   only the GitHub-created README. The trace and agent gates run on
+1. **Bootstrap the trust root (done 2026-09-27).** The trace and agent gates run on
    `pull_request_target`, which uses the workflow and gate code from the default
-   branch and never PR-controlled Python. Until they exist on main, those two
-   required checks never report on the installation PR, so it stays blocked (fail closed). An independently
-   reviewed platform bootstrap procedure is required before normal task PRs can
-   pass. The initial large, agent-coauthored governance PR also intentionally
-   violates the ordinary 400-line/agent path policy. Do not silently relabel
-   it human, bypass rules, or claim it merged through the normal task gates.
-   Decide and record an explicit bootstrap exception outside the normal live-demo
-   path, or have a platform owner install the trust root before enabling the final
-   required check set. **No exception was exercised by this build.**
+   branch, so they could never report on the PR that installs them. That PR also
+   intentionally violated the 400-line/agent path policy. The owner therefore
+   squash-merged PR #6 through a temporary *Repository admin* bypass in
+   "For pull requests only" mode. GitHub logged it as rule suite `4243669608` and
+   signed the squash commit `e2b02b3`. `scripts/apply-rulesets.sh` then restored zero
+   bypass actors (verified via the API). It did not merge through the normal task
+   gates. Record any future bypass the same way.
 2. **Add an independent reviewer with write access.** Replace/extend the personal
    CODEOWNERS entries so the PR author is not the only authorized reviewer.
-   All three initial roles are `hariscats`, not separation of duties.
-3. **Disable production administrator bypass in the UI.** Environments were created
-   with required reviewer `hariscats`, `prevent_self_review=true` and main-only
-   deployment policies. The observed default `can_admins_bypass=true` needs
-   manual hardening; the reviewed PUT documentation omitted that setting.
-4. **Resolve cloud-agent drift.** The baseline expects automations disabled.
-   The live API reported `is_automations_enabled=true`; disable automations in
-   personal/repository cloud-agent settings and rerun the audit. The published
-   configuration endpoint reviewed supports GET, not a verified update operation.
-   Never turn off the firewall to make setup easier.
+   All three initial roles are `hariscats`, not separation of duties. Until this is
+   done, every PR the owner authors, including agent-coauthored maintenance PRs,
+   needs the same logged bypass; Dependabot and other bot PRs can be approved.
+3. **Disable production administrator bypass (done).** The API now reports
+   `can_admins_bypass=false`, with required reviewer `hariscats`,
+   `prevent_self_review=true` and a main-only deployment policy.
+4. **Resolve cloud-agent drift (done).** Automations are disabled, and
+   `scripts/audit-cloud-agent-config.sh` reports `pass`. The endpoint supports GET
+   only, and per its docs accepts OAuth app tokens or classic PATs with `repo` scope.
+   The release workflow's `GITHUB_TOKEN` gets HTTP 403, so the evidence pack records
+   this audit as missing. Run it locally rather than storing a broad classic PAT as a
+   secret. Never turn off the firewall to make setup easier.
 5. **Configure the custom secret pattern** `DEMOSECRET_[A-Z0-9]{24}` and enable
    push protection for that pattern. Provider push protection is not evidence that
    this custom pattern is active. Generate examples at runtime, never commit them.
-6. **Perform cloud delegation only after bootstrap.** Confirm personal Copilot
-   entitlement and selected-repository access. Hooks/setup must be on main first.
+6. **Cloud delegation is now possible.** Hooks and setup steps are on `main`, and
+   Copilot Setup Steps passed there. Confirm personal Copilot entitlement and
+   selected-repository access.
    Assign one spec-002 task only during the live demo.
-7. **Rehearse an approved native release.** Trigger release.yml on main after
-   merged checks are green. A different authorized actor must initiate/approve
-   production under the configured self-review restriction. The local rehearsal
-   does not claim native attestation or production approval.
+7. **Rehearse an approved native release.** The first `main` dispatch (run
+   `36282787385`) passed build, attest and staging and verified both attestations
+   as `main` provenance, then failed at the cloud-agent audit (item 4; fixed after
+   bootstrap). A different authorized actor must approve production under the
+   self-review restriction. No production approval or published release is claimed.
 8. **Use verified signed commits for acceptance.** Local setup commits are unsigned.
    Keep the signed-commit rule enabled; the independent bootstrap procedure must
    account for signing (for example, an authorized GitHub-signed squash once all

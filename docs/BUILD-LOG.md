@@ -254,3 +254,26 @@ Declined, with reasons:
 - CodeQL keeps `security-events: write` on `pull_request`. This is GitHub's documented setup: Python `build-mode: none` executes no PR code, and fork PRs get a read-only token.
 - The validator already scans the full `run` line for worktree commands. A regression test covers `printf x | git checkout`.
 - Three `tasks.md` formatting findings were docs-only.
+
+## Bootstrap merge and first `main` release
+
+The trusted gates run from `main`, so they could not check the PR that installs them.
+The owner therefore merged PR #6 through a single, logged exception:
+
+| Step | Evidence |
+|---|---|
+| Temporary bypass: *Repository admin*, "For pull requests only" | Documented option: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/creating-rulesets-for-a-repository#granting-bypass-permissions-for-your-branch-or-tag-ruleset |
+| Squash merge of PR #6 by `hariscats` at 2026-09-27T00:24:05Z | Commit `e2b02b3`, signed by GitHub (`verified: true`); rule suite `4243669608`, result `bypass` |
+| Bypass removed with `bash scripts/apply-rulesets.sh` | `main-protection` and `release-tags` both `active` with 0 bypass actors and all five required checks |
+| PR #5 closed as superseded | All 72 files identical in PR #6 (`git diff`) |
+| Owner hardening | Production `can_admins_bypass=false`; cloud-agent config audit `pass` |
+| Runs on `main` | CI 36282381641, CodeQL 36282381544, Metrics 36282381670 and Copilot Setup Steps 36282381647 all succeeded |
+| First PR checked by trusted gates from `main` | Dependabot PR #9: Spec Traceability Gate, Agent PR Policy Gate, CI, CodeQL and Dependency Review passed; `BLOCKED` only on code-owner review |
+
+First `main` release dispatch (`v0.1.0`, run 36282787385):
+
+- **Passed:** build → attest → staging (simulated).
+- **Verified:** `verify` checked provenance and the SPDX attestation with `--source-ref refs/heads/main --source-digest e2b02b3`. Local `gh attestation verify` confirmed the certificate's `sourceRepositoryRef` is `refs/heads/main` and its digest is `e2b02b3`. A copy with one appended byte failed.
+- **Failed:** the same `verify` job then hit `gh: Resource not accessible by integration (HTTP 403)` from `scripts/audit-cloud-agent-config.sh`. The preview endpoint documents OAuth app and classic PAT (`repo`) tokens only. Build-branch runs skip `verify`, so only a `main` release could reveal this.
+- **Fix:** `verify` no longer calls the endpoint, and the evidence pack names the audit as missing with the reason. The audit stays a local presenter step. A broad classic PAT secret was rejected on least-privilege grounds.
+- **Not reached:** production was skipped, so no release or tag was published.

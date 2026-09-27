@@ -81,6 +81,7 @@ def test_bundle_and_tamper(tmp_path: Path) -> None:
     with zipfile.ZipFile(evidence(out, tmp_path)) as archive:
         status = json.loads(archive.read("evidence/status.json"))
         assert "attestation-verification.json" in status["missing_evidence"]
+        assert "user token" in status["cloud_agent_audit"]
     (out / "permit-intake.zip").write_bytes(b"tampered")
     with pytest.raises(ValueError, match="Digest mismatch"):
         verify(out)

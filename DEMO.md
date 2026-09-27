@@ -13,9 +13,12 @@ approvals and a real release.
 uv sync --frozen
 uv run --frozen python -m metrics.collector --live-flow   # refresh dashboard flow metrics
 run=$(gh run list --repo hariscats/agentic-sdlc-governance --workflow release.yml \
-  --branch build/governance-reference --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+  --branch main --limit 1 --json databaseId --jq '.[0].databaseId')
 gh run download "$run" --repo hariscats/agentic-sdlc-governance -n release-candidate -D /tmp/proof
 ```
+
+If the latest run is still waiting at production and the download fails, use the
+completed `main` run `36282787385` instead.
 
 Open two browser tabs: [PR #7's checks](https://github.com/hariscats/agentic-sdlc-governance/pull/7/checks)
 and the [`main-protection` ruleset](https://github.com/hariscats/agentic-sdlc-governance/rules).
@@ -29,14 +32,15 @@ uv run --frozen python -m scripts.rehearse --pause
 | Scene | Min | What happens | Talk track |
 |---|---:|---|---|
 | **1. The agent can't go rogue** | 3 | Beat 1: an agent tries to turn off CI, pipe a script to a shell, read an SSH key and plant `json.py` to trick the hook. All four are **DENIED** by the real hook wrapper; only the in-scope `src/app.py` edit is **ALLOWED**. Then run `tail -n 3 .agent-audit/*.jsonl`. | "The same hook file the Copilot CLI loads makes these decisions. Shell is an allow list, not a deny list. Every decision is audited, with arguments hashed rather than stored." |
-| **2. Gates catch what slips through** | 4 | Beat 2: a 401-line cloud-agent PR with no spec, task, issue or tests is **BLOCKED** by both custom gates, and the seeded SQL-injection patch fails CI. Switch to PR #7's checks for the real CodeQL high alert and gate failures, then to the ruleset: required checks, code-owner review, signed commits, **no bypass actors**. | "Humans and agents face the same gates. The trusted gates run from `main`, so a PR cannot rewrite its own gate. Even this demo's own build PR (#6) is waiting for an independent reviewer." |
+| **2. Gates catch what slips through** | 4 | Beat 2: a 401-line cloud-agent PR with no spec, task, issue or tests is **BLOCKED** by both custom gates, and the seeded SQL-injection patch fails CI. Switch to PR #7's checks for the real CodeQL high alert and gate failures, then to the ruleset: required checks, code-owner review, signed commits, **no bypass actors**. | "Humans and agents face the same gates. The trusted gates run from `main`, so a PR cannot rewrite its own gate. Even installing these gates is on the record: the one bootstrap merge was a logged, PR-only bypass, and the ruleset is back to zero bypass actors." |
 | **3. Proof, not promises** | 3 | Beat 3 builds the evidence pack. Then run the two verify commands below: the real build passes and one appended byte fails. Finally run `open dashboard/index.html`. | "Provenance is signed by the release workflow, not asserted in a slide. The usage panel is clearly labelled SYNTHETIC; flow metrics can be live." |
 
 Scene 3 commands:
 
 ```bash
 gh attestation verify /tmp/proof/permit-intake.zip --repo hariscats/agentic-sdlc-governance \
-  --signer-workflow hariscats/agentic-sdlc-governance/.github/workflows/release.yml
+  --signer-workflow hariscats/agentic-sdlc-governance/.github/workflows/release.yml \
+  --source-ref refs/heads/main
 cp /tmp/proof/permit-intake.zip /tmp/proof/tampered.zip && printf x >> /tmp/proof/tampered.zip
 gh attestation verify /tmp/proof/tampered.zip --repo hariscats/agentic-sdlc-governance   # fails
 ```
@@ -48,7 +52,7 @@ gh attestation verify /tmp/proof/tampered.zip --repo hariscats/agentic-sdlc-gove
 
 **Be precise about what this shows.**
 - Scene 1 is the hook policy, not an OS sandbox.
-- The signed artifact comes from the build-branch rehearsal, not an approved `main` release.
+- The signed artifact comes from a `main` release run. No production approval is claimed: whoever dispatches a release cannot approve its deployment.
 - Push protection for the custom `DEMOSECRET_` pattern and Copilot Autofix are not shown until they are configured. See docs/SETUP-MANUAL.md.
 
 Reset: `rm -rf /tmp/proof`. The quick demo creates nothing on GitHub.
@@ -58,10 +62,10 @@ Reset: `rm -rf /tmp/proof`. The quick demo creates nothing on GitHub.
 ### Before presenting
 
 Read docs/SETUP-MANUAL.md. Do not present a pending control as working.
-The bootstrap PR must be independently accepted and the trust root installed on main
-before scenes involving normal gated PRs, cloud setup, or releases.
-Resolve cloud-agent audit drift and configure the custom secret pattern.
-Use two independent authorized humans for approvals.
+The trust root is on `main`: PR #6 merged once through a logged, PR-only bypass
+(see BUILD-LOG). Configure the custom secret pattern before the secret exercise.
+Approvals need a second authorized human, because a PR author or release
+dispatcher cannot approve their own change.
 
 ```bash
 uv sync --frozen
@@ -72,7 +76,7 @@ bash scripts/audit-cloud-agent-config.sh
 
 | Scene | Minutes | Exact actions / expected result / fallback |
 |---|---:|---|
-| 1. Governed intent | 4 | Open `.specify/memory/constitution.md`, `specs/002-permit-review/analysis.md` and tasks.md. Show required architecture approval in the PR UI. Talk track: an agent executes approved intent, not its own scope. If bootstrap is pending, label the scene BLOCKED. |
+| 1. Governed intent | 4 | Open `.specify/memory/constitution.md`, `specs/002-permit-review/analysis.md` and tasks.md. Show "Code owner review required" on an open PR that touches `specs/`, such as the scene 3 cloud-agent PR that ticks tasks.md. Talk track: an agent executes approved intent, not its own scope. |
 | 2. Bounded local agent | 5 | Use the commands below; show scoped edits and JSONL decisions. Talk track: CLI permissions plus hooks, backed by PR checks. If CLI is slow, use the deterministic hook rehearsal and say it is a policy-unit demonstration. |
 | 3. Cloud agent, same gates | 4 | Choose one `spec:002`, `agent-ready` issue in GitHub; assign Copilot. Approve its workflow run after inspecting it. Show session link and verified signature badges. Do not claim a session ran unless the UI shows it. Slow fallback: retain the assigned issue and show the setup/config audit instead. |
 | 4. Negative gates | 6 | Apply the seeded patch on a throwaway demo branch, show test failure and CodeQL finding; use Autofix only when actually offered. Show missing spec/task and oversized-agent failures. Custom secret exercise below requires verified pattern setup. Fallback: local rehearsal demonstrates tests/policies, not native CodeQL/push protection. |
@@ -116,9 +120,8 @@ In CodeQL, inspect the tainted SQL finding and request Autofix if available.
 Try `gh pr review <n> --approve` as the author: GitHub answers "Can not approve your
 own pull request". Clean up with `git switch -` and `bash scripts/reset-demo.sh --apply`,
 which closes the PR and deletes the remote and local demo branch.
-Before bootstrap the PR can only target the build branch, which `main-protection`
-does not cover: checks fail but GitHub reports `UNSTABLE`, not `BLOCKED`. After
-bootstrap, target `main` to show the ruleset blocking the merge.
+Target `main`: the trusted gates run from `main` and the ruleset reports `BLOCKED`.
+Before bootstrap, PR #8 could only target the build branch and was just `UNSTABLE`.
 
 For the secret scene, use `python3 scripts/demo-secret.py` to generate a value at runtime.
 Use a **disposable demo worktree/branch** and a temporary file. A GitHub administrator
@@ -134,8 +137,10 @@ gh workflow run release.yml --repo hariscats/agentic-sdlc-governance --ref main 
 gh run list --repo hariscats/agentic-sdlc-governance --workflow release.yml --limit 5
 ```
 
-Before bootstrap, `main` has no workflows and this dispatch returns HTTP 422
-"Workflow does not have 'workflow_dispatch' trigger"; label the scene BLOCKED.
+The first `main` run (`36282787385`) passed build, attest and staging and verified
+both attestations as `main` provenance. It then failed collecting evidence, because
+`GITHUB_TOKEN` cannot read the cloud-agent configuration. The evidence pack now
+records that audit as missing instead; run it locally in scene 7.
 The run must stop at production approval. The user who starts it cannot also approve it.
 Verification in the workflow checks both SLSA provenance and SPDX predicate.
 After downloading the artifact, the equivalent provenance check is:
@@ -153,7 +158,8 @@ the cryptographic portion only, not a replacement for this approved-release scen
 ### Recorded setup rehearsal
 
 See BUILD-LOG for run URLs and reset results. PR #8 repeated scene 4 live and was
-removed by reset in 8 seconds. PR #7, targeting the unmerged build branch,
+removed by reset in 8 seconds. Dependabot PR #9 was the first PR checked by the
+trusted gates running from `main`. PR #7, targeting the unmerged build branch,
 demonstrated a high CodeQL SQL injection alert, the failing regression test,
 and trace/agent policy denials. The unsafe patch was reversed manually; no Autofix
 or custom-pattern push rejection is claimed. The trace and agent gates now run on

@@ -61,17 +61,17 @@ This runs three beats in about a second and changes nothing on GitHub:
 
 The repository was made **public with explicit approval** to enable native GitHub
 governance features. Company organizations, company telemetry and Azure are not used.
-Rulesets have no bypass actors. **Do not remove checks to merge a bootstrap PR.**
-Independent human acceptance, the initial trusted-gate installation, custom demo
-secret pattern, and any unresolved configuration drift are tracked in
-[SETUP-MANUAL](docs/SETUP-MANUAL.md). Code and local tests are not proof that a
+Rulesets have no bypass actors. A second independent reviewer and the custom demo
+secret pattern are still tracked in [SETUP-MANUAL](docs/SETUP-MANUAL.md). Code and local tests are not proof that a
 release or human approval has occurred.
 
-Implementation is on [`build/governance-reference`](https://github.com/hariscats/agentic-sdlc-governance/tree/build/governance-reference)
-in [PR #6](https://github.com/hariscats/agentic-sdlc-governance/pull/6), with the
-specification published first in [PR #5](https://github.com/hariscats/agentic-sdlc-governance/pull/5).
-Neither PR has been merged. Hosted CI, dependency review, metrics, and native
-**branch-only** provenance/SPDX verification have run successfully.
+The implementation merged to `main` in [PR #6](https://github.com/hariscats/agentic-sdlc-governance/pull/6).
+The specification was first proposed in [PR #5](https://github.com/hariscats/agentic-sdlc-governance/pull/5),
+closed as superseded. The first merge could not pass gates that run from `main`, so
+it went through a single logged, PR-only bypass. The ruleset was then restored to
+zero bypass actors (see [BUILD-LOG](docs/BUILD-LOG.md)). Hosted CI, CodeQL, dependency
+review, metrics, and native provenance/SPDX verification of a `main` build have run
+successfully.
 The original Spec Kit generated assets in `.specify/` and `.github/skills/`
 are covered by the upstream [MIT notice](.specify/LICENSE).
 
