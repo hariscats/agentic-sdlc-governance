@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [{"type":"command","bash":"bash scripts/hooks/governance.sh preToolUse","powershell":"scripts/hooks/governance.ps1 preToolUse","timeoutSec":10}],
+    "sessionStart": [{"type":"command","bash":"bash scripts/hooks/governance.sh sessionStart","powershell":"scripts/hooks/governance.ps1 sessionStart","timeoutSec":10}],
+    "userPromptSubmitted": [{"type":"command","bash":"bash scripts/hooks/governance.sh userPromptSubmitted","powershell":"scripts/hooks/governance.ps1 userPromptSubmitted","timeoutSec":10}],
+    "postToolUse": [{"type":"command","bash":"bash scripts/hooks/governance.sh postToolUse","powershell":"scripts/hooks/governance.ps1 postToolUse","timeoutSec":10}],
+    "sessionEnd": [{"type":"command","bash":"bash scripts/hooks/governance.sh sessionEnd","powershell":"scripts/hooks/governance.ps1 sessionEnd","timeoutSec":10}]
+  }
+}

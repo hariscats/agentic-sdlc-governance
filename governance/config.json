@@ -1,0 +1,15 @@
+{
+  "demo_name": "Guardrails-as-Code: Governed Permit Intake",
+  "repository": "hariscats/agentic-sdlc-governance",
+  "visibility": "public",
+  "profile": "personal-public",
+  "enterprise": null,
+  "organization": null,
+  "minutes": 30,
+  "coverage": 80,
+  "max_agent_lines": 400,
+  "security_owners": ["hariscats"],
+  "deployment": "simulated",
+  "usage_metrics": "synthetic",
+  "optional_previews": false
+}
