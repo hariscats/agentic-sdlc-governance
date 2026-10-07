@@ -1,43 +1,32 @@
-name: Governed Release
+name: Release
+# Builds and signs the permit API source from main. The demo verifies the artifact with
+# `gh attestation verify --signer-workflow <repo>/.github/workflows/release.yml
+# --source-ref refs/heads/main`, so keep this file's path stable.
 on:
-  push:
-    branches: ["build/governance-reference"]
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Release version (vMAJOR.MINOR.PATCH)"
-        type: string
-        required: true
 permissions:
   contents: read
-concurrency:
-  group: governed-release
-  cancel-in-progress: false
 jobs:
   build:
-    if: github.ref == 'refs/heads/main' || github.event_name == 'push'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    # Runs repository code (tests, bundle), so it gets no signing or write permissions.
+    timeout-minutes: 10
     permissions:
       contents: read
-    env:
-      VERSION: ${{ inputs.version || 'v0.1.0-demo' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.12.13"
-      - run: python -m pip install uv==0.11.14
-      - run: uv sync --frozen
-      - run: uv run --frozen pytest --cov --cov-report=xml --junitxml=junit.xml
-      - run: python -m scripts.release_bundle build "$VERSION"
+      - name: Build source zip and checksum
+        run: |
+          git archive --format=zip --output=permit-intake.zip HEAD pyproject.toml uv.lock src
+          python3 -c 'import hashlib, json; digest = hashlib.sha256(open("permit-intake.zip", "rb").read()).hexdigest(); print(json.dumps({"permit-intake.zip": digest}, indent=2))' > checksums.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-candidate
-          path: dist/${{ inputs.version || 'v0.1.0-demo' }}
+          path: |
+            permit-intake.zip
+            checksums.json
           if-no-files-found: error
   attest:
     # Signing is isolated: no checkout and no repository code, only the built bytes.
@@ -56,115 +45,3 @@ jobs:
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: candidate/permit-intake.zip
-      - uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
-        with:
-          subject-path: candidate/permit-intake.zip
-          sbom-path: candidate/sbom.spdx.json
-  branch-proof:
-    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
-    needs: attest
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      attestations: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: release-candidate
-          path: candidate
-      - name: Verify rehearsal provenance and reject it as main provenance
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SOURCE_SHA: ${{ github.sha }}
-          SOURCE_REF: ${{ github.ref }}
-        run: |
-          gh attestation verify candidate/permit-intake.zip --repo hariscats/agentic-sdlc-governance --signer-workflow hariscats/agentic-sdlc-governance/.github/workflows/release.yml --source-ref "$SOURCE_REF" --source-digest "$SOURCE_SHA" --deny-self-hosted-runners --format json > candidate/branch-provenance-verification.json
-          gh attestation verify candidate/permit-intake.zip --repo hariscats/agentic-sdlc-governance --signer-workflow hariscats/agentic-sdlc-governance/.github/workflows/release.yml --source-ref "$SOURCE_REF" --source-digest "$SOURCE_SHA" --predicate-type https://spdx.dev/Document --format json > candidate/branch-sbom-verification.json
-          python3 -m scripts.verify_sbom candidate/sbom.spdx.json candidate/branch-sbom-verification.json
-          if gh attestation verify candidate/permit-intake.zip --repo hariscats/agentic-sdlc-governance --source-ref refs/heads/main --source-digest "$SOURCE_SHA" > candidate/main-rejection.txt 2>&1; then
-            echo "::error::Branch artifact unexpectedly satisfied main provenance"
-            exit 1
-          fi
-          echo "Native branch provenance verified; correctly rejected as main. NOT a production release." >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: native-branch-proof
-          path: candidate
-          if-no-files-found: error
-  staging:
-    if: github.ref == 'refs/heads/main'
-    needs: attest
-    runs-on: ubuntu-24.04
-    environment: staging
-    steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: release-candidate
-          path: candidate
-      - run: echo "SIMULATED staging deployment of immutable release candidate" >> "$GITHUB_STEP_SUMMARY"
-  verify:
-    needs: staging
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      pull-requests: read
-      attestations: read
-    env:
-      VERSION: ${{ inputs.version }}
-      GH_TOKEN: ${{ github.token }}
-      SOURCE_SHA: ${{ github.sha }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: release-candidate
-          path: dist/${{ inputs.version }}
-      - name: Verify both native attestations and collect evidence
-        run: |
-          mkdir -p .demo-state
-          gh attestation verify "dist/$VERSION/permit-intake.zip" --repo hariscats/agentic-sdlc-governance --signer-workflow hariscats/agentic-sdlc-governance/.github/workflows/release.yml --source-ref refs/heads/main --source-digest "$SOURCE_SHA" --deny-self-hosted-runners --format json > .demo-state/attestation-verification.json
-          gh attestation verify "dist/$VERSION/permit-intake.zip" --repo hariscats/agentic-sdlc-governance --signer-workflow hariscats/agentic-sdlc-governance/.github/workflows/release.yml --source-ref refs/heads/main --source-digest "$SOURCE_SHA" --predicate-type https://spdx.dev/Document --format json > .demo-state/sbom-verification.json
-          python3 -m scripts.verify_sbom "dist/$VERSION/sbom.spdx.json" .demo-state/sbom-verification.json
-          python3 -m scripts.pr_evidence
-          python3 -m scripts.release_bundle evidence "$VERSION"
-          if [ ! -f .demo-state/cloud-agent-audit.json ]; then
-            # GITHUB_TOKEN cannot read the preview endpoint; the production approver decides.
-            {
-              echo "### Cloud-agent configuration audit: NOT COLLECTED"
-              echo "Before approving production, run \`bash scripts/audit-cloud-agent-config.sh\` with a user token and confirm \`\"status\": \"pass\"\`."
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: verified-release
-          path: |
-            dist/${{ inputs.version }}
-            .demo-state/release-notes.md
-          include-hidden-files: true
-          if-no-files-found: error
-  production:
-    needs: verify
-    runs-on: ubuntu-24.04
-    environment: production
-    permissions:
-      contents: write
-      attestations: read
-    env:
-      VERSION: ${{ inputs.version }}
-      SOURCE_SHA: ${{ github.sha }}
-      GH_TOKEN: ${{ github.token }}
-    steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: verified-release
-          path: verified
-      - name: Verify artifact and publish after human approval
-        run: |
-          gh attestation verify "verified/dist/$VERSION/permit-intake.zip" --repo hariscats/agentic-sdlc-governance --signer-workflow hariscats/agentic-sdlc-governance/.github/workflows/release.yml --source-ref refs/heads/main --source-digest "$SOURCE_SHA" --deny-self-hosted-runners
-          gh release create "$VERSION" "verified/dist/$VERSION/permit-intake.zip" "verified/dist/$VERSION/sbom.spdx.json" "verified/dist/$VERSION/evidence-$VERSION.zip" --repo hariscats/agentic-sdlc-governance --target "$SOURCE_SHA" --notes-file verified/.demo-state/release-notes.md
-          echo "SIMULATED production deployment; approved release published" >> "$GITHUB_STEP_SUMMARY"

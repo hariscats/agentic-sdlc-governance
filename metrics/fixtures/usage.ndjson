@@ -1,3 +1,0 @@
-{"schema":"demo.usage.v1","synthetic":true,"user":"synthetic-01","engaged":true,"features":["ide_agent","cli","code_review"]}
-{"schema":"demo.usage.v1","synthetic":true,"user":"synthetic-02","engaged":true,"features":["ide_chat","cloud_agent"]}
-{"schema":"demo.usage.v1","synthetic":true,"user":"synthetic-03","engaged":false,"features":["ide_chat"]}

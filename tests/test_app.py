@@ -43,8 +43,3 @@ def test_invalid_input_does_not_echo_values(tmp_path: Path, body: dict[str, str]
         response = client.post("/permits", json=body)
         assert response.status_code == 422
         assert "input" not in response.text
-
-
-def test_feature_002_is_not_implemented(tmp_path: Path) -> None:
-    with TestClient(create_app(tmp_path / "test.db")) as client:
-        assert client.post("/permits/example/decision", json={}).status_code == 404

@@ -1,8 +1,3 @@
 * @hariscats
-/specs/ @hariscats
-/.specify/memory/ @hariscats
 /.github/ @hariscats
-/governance/ @hariscats
-/scripts/ @hariscats
-/src/auth* @hariscats
-/src/crypto* @hariscats
+/guardrails/ @hariscats

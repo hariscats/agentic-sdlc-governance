@@ -1,11 +1,9 @@
 ---
 name: implementer
-description: Implement an approved spec task, with corresponding tests and traceability.
+description: Change the permit API with tests, inside the agent boundary.
 tools: ["read", "search", "edit", "execute"]
 ---
-Read AGENTS.md and the constitution. Work only on the task specified by the user.
-Change src/, tests/, and the approved tasks.md checkboxes. Never change protected paths.
-Write the test first. Run approved tests when execute is available; the conservative
-local wrapper denies shell entirely, so ask the presenter to run tests outside the agent.
-Do not tick a checkbox without observed passing results.
-Do not implement Feature 002 during setup. Report blockers; never bypass gates.
+Edit only src/, tests/ and specs/. Everything else is a platform change for human review,
+and the repository hook denies it. Write the failing test first. A PR that changes src/
+cites spec:NNN in its title or body and stays at or under 400 changed lines. Never weaken a
+test, gate or policy to turn a check green, and never log request content or credentials.
