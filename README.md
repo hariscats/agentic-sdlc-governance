@@ -17,9 +17,10 @@ time. The permit API in `src/app.py` is deliberately tiny: it is only the agent'
 ## Quickstart
 
 ```bash
-uv sync --frozen
 make demo      # opens the console on http://127.0.0.1:8001
 ```
+
+Everything runs on the Python 3.9+ standard library: nothing to install, no lockfile.
 
 `make test` runs the tests and `make reset` clears local demo state.
 [DEMO.md](DEMO.md) is the presenter script.
@@ -32,7 +33,7 @@ make demo      # opens the console on http://127.0.0.1:8001
 | `guardrails/hook.py` | Copilot CLI hook, loaded from `.github/hooks/governance.json` |
 | `guardrails/gates.py` | `spec-link` and `size` gates, run from `main` by `.github/workflows/gates.yml` |
 | `demo/run.py` | The three scenes; every step is a real decision, test, gate run or verification |
-| `demo/console/` | FastAPI and server-sent events console; plain HTML, works offline |
+| `demo/console/` | `http.server` and server-sent events console; plain HTML, works offline |
 
 The full reference implementation (Spec Kit, metrics, evidence packs and docs) is preserved
 at the [`full-reference`](https://github.com/hariscats/agentic-sdlc-governance/tree/full-reference) tag.

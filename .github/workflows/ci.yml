@@ -16,7 +16,6 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12.13"
-      - run: python -m pip install uv==0.11.14
-      - run: uv sync --frozen
-      - run: uv run --frozen ruff check .
-      - run: uv run --frozen pytest --cov
+      # Standard library only: nothing is installed from PyPI.
+      - run: python -m compileall -q src guardrails demo tests
+      - run: python -m unittest discover -s tests -t . -v

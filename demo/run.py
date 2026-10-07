@@ -1,13 +1,15 @@
 """Paced demo scenes. Every step is real and is appended to demo/events.jsonl as
 {"ts", "scene", "stage", "status", "detail"} for the live console.
 
-    uv run --frozen python -m demo.run --scene 1|2|3 [--pace SECONDS]
+    python3 -m demo.run --scene 1|2|3 [--pace SECONDS]
 
 1  Five agent tool calls go through the real Copilot hook entrypoint: 4 denied, 1 allowed.
-2  In a temporary copy: the seeded SQL injection fails pytest, both PR gates block an
+2  In a temporary copy: the seeded SQL injection fails the tests, both PR gates block an
    oversized agent PR with no spec link, and the reverted code passes.
 3  The signed release artifact verifies; a copy with one extra byte does not.
 """
+
+from __future__ import annotations
 
 import argparse
 import hashlib
@@ -19,7 +21,7 @@ import sys
 import tempfile
 import time
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -66,7 +68,7 @@ class Recorder:
     def step(self, stage: str, status: str, detail: str) -> None:
         self.steps += 1
         record = {
-            "ts": datetime.now(UTC).isoformat(),
+            "ts": datetime.now(timezone.utc).isoformat(),  # noqa: UP017
             "scene": self.scene,
             "stage": stage,
             "status": status,
@@ -113,9 +115,12 @@ def first_line(text: str) -> str:
     return lines[0][:160] if lines else "no output"
 
 
-def summary(pytest_output: str) -> str:
-    lines = [line.strip(" =") for line in pytest_output.splitlines() if line.strip(" =")]
-    return lines[-1] if lines else "no output"
+def summary(unittest_output: str) -> str:
+    """'Ran 3 tests: FAILED (failures=1)' from unittest's closing lines."""
+    lines = [line.strip() for line in unittest_output.splitlines() if line.strip()]
+    ran = next((line for line in reversed(lines) if line.startswith("Ran ")), "")
+    ran = ran.split(" in ")[0]
+    return f"{ran}: {lines[-1]}" if ran and lines else "no output"
 
 
 # Scene 1: the hook.
@@ -145,10 +150,9 @@ def scene_hook(rec: Recorder, root: Path) -> None:
 # Scene 2: the gates.
 
 
-def pytest(directory: Path) -> subprocess.CompletedProcess[str]:
-    command = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider"]
+def unit_tests(directory: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [*command, "tests/test_app.py"],
+        [sys.executable, "-m", "unittest", "-v", "tests.test_app"],
         capture_output=True,
         text=True,
         cwd=directory,
@@ -188,13 +192,14 @@ def scene_gates(rec: Recorder, root: Path) -> None:
         app = work / "app"
         shutil.copytree(root / "src", app / "src", ignore=shutil.ignore_patterns("__pycache__"))
         (app / "tests").mkdir()
-        shutil.copyfile(root / "tests/test_app.py", app / "tests/test_app.py")
+        for name in ("__init__.py", "test_app.py"):
+            shutil.copyfile(root / "tests" / name, app / "tests" / name)
         git(app, "init", "-q")
         git(app, "apply", str(patch))
-        tests = pytest(app)
-        if tests.returncode != 1 or "test_submit_retrieve_persist" not in tests.stdout:
+        tests = unit_tests(app)
+        if tests.returncode != 1 or "FAIL: test_submit_retrieve_persist" not in tests.stderr:
             raise rec.fail("gates", "The seeded SQL injection did not fail the regression test")
-        rec.step("gates", "failed", f"CI with the seeded SQL injection: {summary(tests.stdout)}")
+        rec.step("gates", "failed", f"CI with the seeded SQL injection: {summary(tests.stderr)}")
 
         repo, base, head, metadata = oversized_pr(work, root)
         for gate, check in GATES:
@@ -218,10 +223,10 @@ def scene_gates(rec: Recorder, root: Path) -> None:
 
         rec.wait()
         git(app, "apply", "-R", str(patch))
-        tests = pytest(app)
+        tests = unit_tests(app)
         if tests.returncode != 0:
             raise rec.fail("gates", "Tests still fail after reverting the seeded patch")
-        rec.step("gates", "passed", f"CI after reverting the patch: {summary(tests.stdout)}")
+        rec.step("gates", "passed", f"CI after reverting the patch: {summary(tests.stderr)}")
 
 
 # Scene 3: the proof.

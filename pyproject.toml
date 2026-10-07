@@ -1,34 +1,7 @@
 [project]
 name = "governed-permit-intake"
 version = "0.1.0"
-description = "Guardrails-as-Code live governance demo"
-requires-python = ">=3.12,<3.13"
-dependencies = ["fastapi==0.135.1", "uvicorn==0.41.0"]
-
-[dependency-groups]
-dev = [
-  "httpx==0.28.1",
-  "pytest==9.0.3",
-  "pytest-cov==7.0.0",
-  "ruff==0.15.6",
-]
-
-[tool.pytest.ini_options]
-pythonpath = ["."]
-testpaths = ["tests"]
-addopts = "--strict-markers"
-
-[tool.coverage.run]
-branch = true
-source = ["src", "guardrails"]
-
-[tool.coverage.report]
-fail_under = 80
-show_missing = true
-
-[tool.ruff]
-target-version = "py312"
-line-length = 100
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP"]
+description = "Guardrails-as-Code live governance demo (Python standard library only)"
+requires-python = ">=3.9"
+# No third-party packages: nothing is installed from PyPI to build, test or run the demo.
+dependencies = []

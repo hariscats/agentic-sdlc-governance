@@ -7,6 +7,8 @@
 PR commits are read as Git objects only: never checked out, imported or executed.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import os
