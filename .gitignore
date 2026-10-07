@@ -9,8 +9,8 @@ coverage.xml
 junit.xml
 .agent-audit/
 .demo-state/
+demo/events.jsonl
 dist/
-metrics/out/
 *.db
 .env
 .env.*
