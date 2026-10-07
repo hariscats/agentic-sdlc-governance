@@ -27,9 +27,8 @@ SAFE_COMMANDS = frozenset(
         "git diff",
         "git diff --stat",
         "git log -5 --oneline",
-        "uv run --frozen pytest",
-        "uv run --frozen pytest tests",
-        "uv run --frozen ruff check src tests",
+        "make test",
+        "python3 -m unittest discover -s tests -t .",
     }
 )
 SHELL_TOOLS = {"bash", "powershell", "shell", "Bash"}

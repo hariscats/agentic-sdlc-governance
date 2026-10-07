@@ -1,73 +1,44 @@
-"""Live demo console: FastAPI and server-sent events on http://127.0.0.1:8001.
+"""Live demo console on http://127.0.0.1:8001, standard library only.
 
-    make demo    # same as: uv run --frozen python -m demo.console.server
+    make demo    # same as: python3 -m demo.console.server
 
 Every event comes from .agent-audit/session.jsonl (real hook decisions) or
 demo/events.jsonl (real test, gate and verification steps). /try never executes.
 """
 
+from __future__ import annotations
+
 import argparse
-import asyncio
 import json
 import subprocess
 import sys
 import threading
 import time
 import webbrowser
-from collections.abc import AsyncIterator
+from collections.abc import Callable, Iterator
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
-
-import uvicorn
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
-from pydantic import BaseModel, ConfigDict, Field
-from starlette.datastructures import Headers
-from starlette.types import ASGIApp, Receive, Scope, Send
+from typing import Any, Dict, Tuple
 
 from demo import run
 from guardrails import policy
 
 HOST, PORT = "127.0.0.1", 8001
-ALLOWED_HOSTS = {f"{HOST}:{PORT}", f"localhost:{PORT}"}
 INDEX = Path(__file__).with_name("index.html")
 SCENES = {1: "1", 2: "2", 3: "3"}
 CSP = (
     "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
     "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 )
-Offsets = dict[str, tuple[int, int]]
+MAX_BODY = 4096
+Offsets = Dict[str, Tuple[int, int]]
 
 
-class Attempt(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    command: str = Field(min_length=1, max_length=500)
-
-
-class Verification(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    tampered: bool = False
-
-
-class LocalOnly:
-    """Refuse other Host headers (DNS rebinding) and non-JSON POSTs (cross-site forms)."""
-
-    def __init__(self, app: ASGIApp) -> None:
-        self.app = app
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] == "http":
-            headers = Headers(scope=scope)
-            media = headers.get("content-type", "").split(";")[0].strip().lower()
-            refusal = None
-            if headers.get("host") not in ALLOWED_HOSTS:
-                refusal = JSONResponse({"detail": "Unknown host"}, status_code=403)
-            elif scope["method"] == "POST" and media != "application/json":
-                refusal = JSONResponse({"detail": "Send JSON"}, status_code=415)
-            if refusal is not None:
-                await refusal(scope, receive, send)
-                return
-        await self.app(scope, receive, send)
+class Rejected(Exception):
+    def __init__(self, status: int, detail: Any) -> None:
+        super().__init__(str(detail))
+        self.status, self.detail = status, detail
 
 
 def sources(root: Path) -> dict[str, Path]:
@@ -119,9 +90,13 @@ def poll(files: dict[str, Path], offsets: Offsets) -> list[dict[str, Any]]:
     return events
 
 
-async def stream(
-    files: dict[str, Path], offsets: Offsets, interval: float = 0.25, heartbeat: float = 15
-) -> AsyncIterator[str]:
+def stream(
+    files: dict[str, Path],
+    offsets: Offsets,
+    interval: float = 0.25,
+    heartbeat: float = 15,
+    sleep: Callable[[float], None] = time.sleep,
+) -> Iterator[str]:
     quiet = 0.0
     while True:
         batch = poll(files, offsets)
@@ -131,69 +106,161 @@ async def stream(
         if quiet >= heartbeat:
             quiet = 0.0
             yield ": keep-alive\n\n"
-        await asyncio.sleep(interval)
+        sleep(interval)
 
 
-def create_app(root: Path = run.ROOT) -> FastAPI:
-    files = sources(root)
-    start = positions(files)
-    scenes: dict[str, subprocess.Popen[bytes]] = {}
-    app = FastAPI(title="Guardrails console", docs_url=None, redoc_url=None, openapi_url=None)
-    app.add_middleware(LocalOnly)
+def field(body: dict[str, Any], name: str, kind: type, required: bool) -> Any:
+    if name not in body:
+        if required:
+            raise Rejected(HTTPStatus.UNPROCESSABLE_ENTITY, [{"location": [name], "type": "missing"}])
+        return None
+    if type(body[name]) is not kind:
+        raise Rejected(HTTPStatus.UNPROCESSABLE_ENTITY, [{"location": [name], "type": "type"}])
+    return body[name]
 
-    @app.get("/", response_class=HTMLResponse)
-    def index() -> HTMLResponse:
-        headers = {"Content-Security-Policy": CSP, "Cache-Control": "no-store"}
-        return HTMLResponse(INDEX.read_text(), headers=headers)
 
-    @app.get("/events")
-    def events() -> StreamingResponse:
-        return StreamingResponse(
-            stream(files, dict(start)),
-            media_type="text/event-stream",
-            headers={"Cache-Control": "no-store"},
-        )
+class Console:
+    """Routes and state for one console; the HTTP handler only parses and replies."""
 
-    @app.post("/try")
-    def attempt(body: Attempt) -> dict[str, str]:
-        decision = policy.evaluate("bash", {"command": body.command}, root)
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.files = sources(root)
+        self.start = positions(self.files)
+        self.process: subprocess.Popen[bytes] | None = None
+        self.lock = threading.Lock()
+
+    def attempt(self, body: dict[str, Any]) -> dict[str, str]:
+        self.only(body, {"command"})
+        command = field(body, "command", str, required=True)
+        if not 1 <= len(command) <= 500:
+            raise Rejected(HTTPStatus.UNPROCESSABLE_ENTITY, [{"location": ["command"], "type": "length"}])
+        decision = policy.evaluate("bash", {"command": command}, self.root)
         return {"decision": decision.decision, "reason": decision.reason, "target": decision.target}
 
-    @app.post("/scene/{number}")
-    def scene(number: int) -> dict[str, int]:
-        if number not in SCENES:
-            raise HTTPException(status_code=404, detail="Unknown scene")
-        running = scenes.get("current")
-        if running is not None and running.poll() is None:
-            raise HTTPException(status_code=409, detail="A scene is already running")
-        command = [sys.executable, "-m", "demo.run", "--scene", SCENES[number], "--pace", "2"]
-        scenes["current"] = subprocess.Popen(command, cwd=root)
-        return {"scene": number}
+    def scene(self, number: str, body: dict[str, Any]) -> dict[str, int]:
+        self.only(body, set())
+        if not number.isdigit() or int(number) not in SCENES:
+            raise Rejected(HTTPStatus.NOT_FOUND, "Unknown scene")
+        with self.lock:
+            if self.process is not None and self.process.poll() is None:
+                raise Rejected(HTTPStatus.CONFLICT, "A scene is already running")
+            command = [sys.executable, "-m", "demo.run", "--scene", SCENES[int(number)], "--pace", "2"]
+            self.process = subprocess.Popen(command, cwd=self.root)
+        return {"scene": int(number)}
 
-    @app.post("/verify")
-    def verify(body: Verification) -> dict[str, str]:
-        return run.verify_step(body.tampered, root)
+    def verify(self, body: dict[str, Any]) -> dict[str, str]:
+        self.only(body, {"tampered"})
+        tampered = field(body, "tampered", bool, required=False) or False
+        return run.verify_step(tampered, self.root)
 
-    return app
+    @staticmethod
+    def only(body: dict[str, Any], allowed: set[str]) -> None:
+        extra = sorted(set(body) - allowed)
+        if extra:
+            errors = [{"location": [name], "type": "extra_forbidden"} for name in extra]
+            raise Rejected(HTTPStatus.UNPROCESSABLE_ENTITY, errors)
+
+
+def handler(console: Console) -> type[BaseHTTPRequestHandler]:
+    class ConsoleHandler(BaseHTTPRequestHandler):
+        server_version = "guardrails-console"
+        sys_version = ""
+
+        def log_message(self, format: str, *args: Any) -> None:
+            """No access log: commands typed into the console must not be recorded."""
+
+        def allowed_host(self) -> bool:
+            port = self.server.server_address[1]
+            return self.headers.get("Host") in {f"{HOST}:{port}", f"localhost:{port}"}
+
+        def reply(self, status: int, payload: Any) -> None:
+            data = json.dumps(payload).encode()
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def do_GET(self) -> None:
+            if not self.allowed_host():
+                self.reply(HTTPStatus.FORBIDDEN, {"detail": "Unknown host"})
+            elif self.path == "/":
+                data = INDEX.read_bytes()
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Content-Security-Policy", CSP)
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(data)
+            elif self.path == "/events":
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "text/event-stream")
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                try:
+                    for message in stream(console.files, dict(console.start)):
+                        self.wfile.write(message.encode())
+                        self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError):
+                    pass  # the browser closed the stream
+            else:
+                self.reply(HTTPStatus.NOT_FOUND, {"detail": "Not Found"})
+
+        def do_POST(self) -> None:
+            media = self.headers.get("Content-Type", "").split(";")[0].strip().lower()
+            if not self.allowed_host():
+                self.reply(HTTPStatus.FORBIDDEN, {"detail": "Unknown host"})
+                return
+            if media != "application/json":
+                self.reply(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, {"detail": "Send JSON"})
+                return
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if not 0 <= length <= MAX_BODY:
+                    raise Rejected(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "Body too large")
+                body = json.loads(self.rfile.read(length) or b"{}")
+                if not isinstance(body, dict):
+                    raise Rejected(HTTPStatus.UNPROCESSABLE_ENTITY, [{"location": [], "type": "object"}])
+                if self.path == "/try":
+                    result: Any = console.attempt(body)
+                elif self.path.startswith("/scene/"):
+                    result = console.scene(self.path.removeprefix("/scene/"), body)
+                elif self.path == "/verify":
+                    result = console.verify(body)
+                else:
+                    raise Rejected(HTTPStatus.NOT_FOUND, "Not Found")
+            except Rejected as rejection:
+                self.reply(rejection.status, {"detail": rejection.detail})
+            except ValueError:
+                self.reply(HTTPStatus.UNPROCESSABLE_ENTITY, {"detail": "Invalid JSON"})
+            else:
+                self.reply(HTTPStatus.OK, result)
+
+    return ConsoleHandler
+
+
+def create_server(root: Path = run.ROOT, host: str = HOST, port: int = PORT) -> ThreadingHTTPServer:
+    server = ThreadingHTTPServer((host, port), handler(Console(root)))
+    server.daemon_threads = True  # open event streams must not block shutdown
+    return server
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Live guardrails console")
     parser.add_argument("--no-browser", action="store_true", help="do not open a browser")
     args = parser.parse_args(argv)
+    server = create_server()
     url = f"http://{HOST}:{PORT}/"
-    server = uvicorn.Server(uvicorn.Config(create_app(), host=HOST, port=PORT, log_level="warning"))
-
-    def open_when_ready() -> None:
-        while not server.started and not server.should_exit:
-            time.sleep(0.1)
-        if server.started:
-            webbrowser.open(url)
-
-    if not args.no_browser:
-        threading.Thread(target=open_when_ready, daemon=True).start()
     print(f"Guardrails console on {url} (Ctrl+C to stop)", flush=True)
-    server.run()
+    if not args.no_browser:
+        threading.Timer(0.3, webbrowser.open, [url]).start()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
 
 
 if __name__ == "__main__":

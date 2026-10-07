@@ -19,7 +19,7 @@ jobs:
           persist-credentials: false
       - name: Build source zip and checksum
         run: |
-          git archive --format=zip --output=permit-intake.zip HEAD pyproject.toml uv.lock src
+          git archive --format=zip --output=permit-intake.zip HEAD pyproject.toml src
           python3 -c 'import hashlib, json; digest = hashlib.sha256(open("permit-intake.zip", "rb").read()).hexdigest(); print(json.dumps({"permit-intake.zip": digest}, indent=2))' > checksums.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
